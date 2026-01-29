@@ -1,0 +1,32 @@
+services:
+  - type: web
+    name: smarttasktracker-api
+    env: dotnet
+    region: oregon
+    plan: free
+    buildCommand: cd backend/SmartTaskTracker.API && dotnet restore && dotnet publish -c Release -o out
+    startCommand: cd backend/SmartTaskTracker.API/out && ./SmartTaskTracker.API
+    envVars:
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
+      - key: ASPNETCORE_URLS
+        value: http://0.0.0.0:$PORT
+      - key: DATABASE_URL
+        fromDatabase:
+          name: smarttasktracker-db
+          property: connectionString
+      - key: JWT_KEY
+        generateValue: true
+      - key: JWT_ISSUER
+        value: SmartTaskTracker
+      - key: JWT_AUDIENCE
+        value: SmartTaskTracker
+      # Set this after deploying frontend - replace with your Netlify URL
+      - key: FRONTEND_URL
+        value: https://your-app-name.netlify.app
+
+databases:
+  - name: smarttasktracker-db
+    databaseName: smarttasktracker
+    user: smarttasktracker_user
+    plan: free
