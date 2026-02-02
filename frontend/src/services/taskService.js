@@ -81,5 +81,11 @@ export const taskService = {
   getSubtasks: async (parentTaskId) => {
     const { data } = await api.get(`/tasks/${parentTaskId}/subtasks`)
     return data
+  },
+
+  getAiSuggestions: async (topK = null) => {
+    const params = topK != null ? { topK } : {}
+    const { data } = await api.get('/tasks/ai-suggestions', { params })
+    return data
   }
 }

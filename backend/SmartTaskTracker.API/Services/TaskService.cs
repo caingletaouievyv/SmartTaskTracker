@@ -286,6 +286,29 @@ public class TaskService
         }).ToList();
     }
 
+    public async Task<List<TaskSuggestionDto>> GetSuggestedNextAsync(int userId, int? topK = null)
+    {
+        const int defaultTopK = 10;
+        var k = topK ?? defaultTopK;
+        var tasks = await GetTasksAsync(userId, null, null, "priority", includeArchived: false);
+        var active = tasks.Where(t => !t.IsCompleted && t.StatusName != "Cancelled").ToList();
+        var ordered = active
+            .OrderByDescending(t => t.Priority)
+            .ThenBy(t => t.DueDate ?? DateTime.MaxValue)
+            .ThenByDescending(t => t.CanStart)
+            .Take(k)
+            .ToList();
+        var results = new List<TaskSuggestionDto>();
+        foreach (var t in ordered)
+        {
+            var reason = t.Priority == Priority.High ? "High priority"
+                : t.DueDate.HasValue && (t.DueDate.Value.Date - DateTime.UtcNow.Date).TotalDays <= 7 ? "Due soon"
+                : t.CanStart ? "Ready to start" : null;
+            results.Add(new TaskSuggestionDto { Task = t, Reason = reason });
+        }
+        return results;
+    }
+
     private async TaskAsync LogHistoryAsync(int taskId, HistoryAction action, int userId, string details = "")
     {
         var history = new TaskHistory

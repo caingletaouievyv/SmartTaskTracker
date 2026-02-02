@@ -90,7 +90,7 @@ frontend/
     services/              API clients (Axios)
       api.js              Axios instance + auth interceptors
       authService.js      Register, login, refresh
-      taskService.js      Task CRUD
+      taskService.js      Task CRUD, ai-suggestions
       taskTemplateService.js  Template CRUD
       tagService.js       Tag CRUD
       settingsService.js  User settings API
@@ -113,7 +113,7 @@ backend/SmartTaskTracker.API/
   SmartTaskTracker.API.csproj
   Controllers/             REST endpoints
     AuthController.cs      Register, login, refresh
-    TasksController.cs     Task CRUD, bulk, archive, subtasks, dependencies, import
+    TasksController.cs     Task CRUD, bulk, archive, subtasks, dependencies, import, ai-suggestions
     TaskTemplatesController.cs  Template CRUD
     TagsController.cs      Tag CRUD
     SettingsController.cs  User settings
@@ -140,6 +140,7 @@ backend/SmartTaskTracker.API/
     AnalyticsDto.cs
     ReminderDto.cs
     TaskHistoryDto.cs
+    TaskSearchDto.cs       TaskSearchResultDto, TaskSuggestionDto
   Data/
     AppDbContext.cs         EF Core DbContext
     DbSeeder.cs             Dev seed data

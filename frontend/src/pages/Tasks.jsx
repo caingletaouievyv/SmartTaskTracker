@@ -234,6 +234,9 @@ function Tasks() {
 
   // When showArchived is true, we want ONLY archived tasks (not mixed)
   const includeArchived = showArchived
+  const [suggestions, setSuggestions] = useState([])
+  const [showSuggestions, setShowSuggestions] = useState(false)
+  const [suggestionsLoading, setSuggestionsLoading] = useState(false)
   const { tasks: fetchedTasks, loading, createTask, updateTask, deleteTask, bulkDeleteTasks, bulkCompleteTasks, archiveTask, unarchiveTask, createSubtask, refreshTasks } = useTasks(search, status, effectiveSortBy, includeArchived, dueDate, priority, tags)
   
   // Filter: show ONLY archived when button active, ONLY active when button inactive
@@ -1882,6 +1885,25 @@ function Tasks() {
                 )}
               </>
             )}
+            <button
+              className="btn btn-outline-secondary"
+              style={{ height: '38px' }}
+              onClick={async () => {
+                setSuggestionsLoading(true)
+                setShowSuggestions(true)
+                try {
+                  const data = await taskService.getAiSuggestions()
+                  setSuggestions(Array.isArray(data) ? data : [])
+                } catch (err) {
+                  setSuggestions([])
+                } finally {
+                  setSuggestionsLoading(false)
+                }
+              }}
+              title="Suggested next (priority, due date)"
+            >
+              What&apos;s next?
+            </button>
             <button 
               className="btn btn-primary" 
               style={{ height: '38px', minWidth: '120px' }}
@@ -1893,6 +1915,35 @@ function Tasks() {
             </div>
           </div>
         </div>
+
+        {showSuggestions && (
+          <div className="mb-3 p-2 border rounded" style={{ backgroundColor: 'var(--bs-secondary-bg)' }}>
+            <div className="d-flex justify-content-between align-items-center mb-2">
+              <span className="small fw-semibold">Suggested next</span>
+              <button type="button" className="btn btn-sm btn-link p-0" onClick={() => setShowSuggestions(false)} aria-label="Close">×</button>
+            </div>
+            {suggestionsLoading ? (
+              <span className="small text-muted">Loading…</span>
+            ) : suggestions.length === 0 ? (
+              <span className="small text-muted">No suggestions.</span>
+            ) : (
+              <ul className="list-unstyled mb-0 small">
+                {suggestions.map((s) => (
+                  <li key={s.task?.id}>
+                    <button
+                      type="button"
+                      className="btn btn-link btn-sm text-start p-0 text-decoration-none"
+                      onClick={() => { setShowSuggestions(false); handleEdit(s.task) }}
+                    >
+                      {s.task?.title}
+                      {s.reason ? <span className="text-muted ms-1">({s.reason})</span> : null}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
 
         {selectedTasks.size > 0 && (
           <BulkActionsBar

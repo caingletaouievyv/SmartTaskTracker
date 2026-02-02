@@ -634,6 +634,26 @@ npm test
 
 ---
 
+### Test 46: Suggested next (“What’s next?”)
+
+**State:** Task list displayed  
+**Intent:** See suggested next tasks (priority, due date, ready to start)  
+**Action:** Click “What’s next?” → Use suggestions
+
+1. Create several tasks: at least one high priority, one due soon, one with no dependencies.
+2. Click **What’s next?** (next to “+ Add Task”).
+3. ✅ A “Suggested next” panel appears below the toolbar.
+4. ✅ Panel lists tasks with optional reason (e.g. “High priority”, “Due soon”, “Ready to start”).
+5. Click a suggested task title → ✅ Task edit modal opens for that task.
+6. Click **×** (or close panel) → ✅ Panel closes.
+
+**Validation:**
+- Empty list → “No suggestions.” or empty panel.
+- Loading → “Loading…” shown briefly.
+- Suggestions are ordered by priority, then due date, then ready to start (DB-only; no AI).
+
+---
+
 ## Expected Behaviors
 
 ✅ **Loading States:**

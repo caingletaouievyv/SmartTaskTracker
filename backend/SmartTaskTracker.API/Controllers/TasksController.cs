@@ -89,6 +89,13 @@ public class TasksController : ControllerBase
         return Ok(reminders);
     }
 
+    [HttpGet("ai-suggestions")]
+    public async Task<ActionResult<List<TaskSuggestionDto>>> GetAiSuggestions([FromQuery] int? topK = null)
+    {
+        var results = await _taskService.GetSuggestedNextAsync(GetUserId(), topK);
+        return Ok(results);
+    }
+
     [HttpPost("bulk-delete")]
     public async Task<ActionResult> BulkDeleteTasks([FromBody] BulkOperationDto dto)
     {
