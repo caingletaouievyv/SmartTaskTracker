@@ -14,15 +14,13 @@ services:
         fromDatabase:
           name: smarttasktracker-db
           property: connectionString
-      - key: JWT_KEY
-        generateValue: true
+      # Set in Render dashboard: JWT_KEY (required), FRONTEND_URL (your Netlify URL with https://)
       - key: JWT_ISSUER
         value: SmartTaskTracker
       - key: JWT_AUDIENCE
         value: SmartTaskTracker
-      # Set this after deploying frontend - replace with your Netlify URL
       - key: FRONTEND_URL
-        value: smarttasktracker.netlify.app
+        value: https://smarttasktracker.netlify.app
 
 databases:
   - name: smarttasktracker-db

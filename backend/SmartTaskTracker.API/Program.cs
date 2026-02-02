@@ -106,7 +106,7 @@ using (var scope = app.Services.CreateScope())
     {
         db.Database.EnsureCreated();
     }
-    if (app.Environment.IsDevelopment())
+    if (app.Environment.IsDevelopment() || string.Equals(Environment.GetEnvironmentVariable("SEED_DATABASE"), "true", StringComparison.OrdinalIgnoreCase))
     {
         DbSeeder.SeedData(db);
     }
