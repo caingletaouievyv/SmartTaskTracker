@@ -214,7 +214,7 @@ function TaskCard({ task, onEdit, onDelete, onToggleComplete, onDuplicate, onArc
                     onClick={() => setShowStatusDropdown(false)}
                   />
                   <div 
-                    className="position-absolute border rounded shadow-sm p-1 mt-1"
+                    className="position-absolute border rounded shadow-sm p-1 mt-1 status-dropdown-menu"
                     style={{ 
                       zIndex: 1000, 
                       minWidth: '150px',
@@ -239,7 +239,7 @@ function TaskCard({ task, onEdit, onDelete, onToggleComplete, onDuplicate, onArc
                         }}
                         onMouseEnter={(e) => {
                           if (currentStatusValue !== option.value) {
-                            e.target.style.background = 'var(--bs-gray-100)'
+                            e.target.style.background = 'var(--bs-tertiary-bg, var(--bs-secondary-bg))'
                           }
                         }}
                         onMouseLeave={(e) => {
@@ -283,6 +283,12 @@ function TaskCard({ task, onEdit, onDelete, onToggleComplete, onDuplicate, onArc
               background: rgba(255, 255, 255, 0.05) !important;
               opacity: 1;
               color: inherit !important;
+            }
+            [data-theme="dark"] .status-dropdown-menu button {
+              color: #fff !important;
+            }
+            [data-theme="dark"] .status-dropdown-menu button:hover:not(.bg-primary) {
+              background: rgba(255, 255, 255, 0.15) !important;
             }
             .task-card-hover .badge {
               max-width: min(150px, 100%);

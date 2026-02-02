@@ -110,11 +110,12 @@ function BulkActionsBar({ selectedCount, selectedTasks, tasks, onBulkDelete, onB
                       padding: '0.375rem 0.5rem',
                       border: 'none',
                       background: 'transparent',
+                      color: 'var(--bs-body-color)',
                       borderRadius: '0.25rem',
                       transition: 'background-color 0.15s ease'
                     }}
                     onMouseEnter={(e) => {
-                      e.target.style.background = 'var(--bs-gray-100)'
+                      e.target.style.background = 'var(--bs-tertiary-bg, var(--bs-secondary-bg))'
                     }}
                     onMouseLeave={(e) => {
                       e.target.style.background = 'transparent'
