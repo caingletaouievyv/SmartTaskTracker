@@ -64,13 +64,15 @@ builder.Services.AddScoped<TaskTemplateService>();
 builder.Services.AddScoped<SettingsService>();
 builder.Services.AddScoped<TagService>();
 
-// CORS
-var frontendUrl = Environment.GetEnvironmentVariable("FRONTEND_URL") ?? "http://localhost:5173";
+var frontendUrl = Environment.GetEnvironmentVariable("FRONTEND_URL")?.Trim();
+var origins = string.IsNullOrEmpty(frontendUrl)
+    ? new[] { "http://localhost:5173", "http://localhost:3000" }
+    : new[] { frontendUrl, "http://localhost:5173", "http://localhost:3000" };
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowReactApp", policy =>
     {
-        policy.WithOrigins(frontendUrl, "http://localhost:5173", "http://localhost:3000")
+        policy.WithOrigins(origins)
               .AllowAnyHeader()
               .AllowAnyMethod()
               .AllowCredentials();
