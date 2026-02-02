@@ -12,7 +12,9 @@ public static class JwtHelper
 {
     public static string GenerateToken(User user, IConfiguration configuration)
     {
-        var key = Encoding.UTF8.GetBytes(configuration["Jwt:Key"]!);
+        var keyStr = configuration["Jwt:Key"] ?? Environment.GetEnvironmentVariable("JWT_KEY")
+            ?? throw new InvalidOperationException("JWT Key must be set (Jwt:Key or JWT_KEY).");
+        var key = Encoding.UTF8.GetBytes(keyStr);
         var claims = new[]
         {
             new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
