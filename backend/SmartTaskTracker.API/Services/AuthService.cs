@@ -9,12 +9,12 @@ namespace SmartTaskTracker.API.Services;
 public class AuthService
 {
     private readonly AppDbContext _context;
-    private readonly IConfiguration _configuration;
+    private readonly JwtOptions _jwtOptions;
 
-    public AuthService(AppDbContext context, IConfiguration configuration)
+    public AuthService(AppDbContext context, JwtOptions jwtOptions)
     {
         _context = context;
-        _configuration = configuration;
+        _jwtOptions = jwtOptions;
     }
 
     public async Task<AuthResponseDto?> RegisterAsync(RegisterDto dto)
@@ -32,7 +32,7 @@ public class AuthService
         _context.Users.Add(user);
         await _context.SaveChangesAsync();
 
-        var token = JwtHelper.GenerateToken(user, _configuration);
+        var token = JwtHelper.GenerateToken(user, _jwtOptions);
         var refreshToken = JwtHelper.GenerateRefreshToken();
         user.RefreshToken = refreshToken;
         user.RefreshTokenExpiry = DateTime.UtcNow.AddDays(7);
@@ -47,7 +47,7 @@ public class AuthService
         if (user == null || !BCrypt.Net.BCrypt.Verify(dto.Password, user.PasswordHash))
             return null;
 
-        var token = JwtHelper.GenerateToken(user, _configuration);
+        var token = JwtHelper.GenerateToken(user, _jwtOptions);
         var refreshToken = JwtHelper.GenerateRefreshToken();
         user.RefreshToken = refreshToken;
         user.RefreshTokenExpiry = DateTime.UtcNow.AddDays(7);
@@ -65,7 +65,7 @@ public class AuthService
         if (user == null)
             return null;
 
-        var token = JwtHelper.GenerateToken(user, _configuration);
+        var token = JwtHelper.GenerateToken(user, _jwtOptions);
         var newRefreshToken = JwtHelper.GenerateRefreshToken();
         user.RefreshToken = newRefreshToken;
         user.RefreshTokenExpiry = DateTime.UtcNow.AddDays(7);

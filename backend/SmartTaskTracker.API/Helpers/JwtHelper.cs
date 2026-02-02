@@ -10,25 +10,21 @@ namespace SmartTaskTracker.API.Helpers;
 
 public static class JwtHelper
 {
-    public static string GenerateToken(User user, IConfiguration configuration)
+    public static string GenerateToken(User user, JwtOptions options)
     {
-        var keyStr = configuration["Jwt:Key"] ?? Environment.GetEnvironmentVariable("JWT_KEY")
-            ?? throw new InvalidOperationException("JWT Key must be set (Jwt:Key or JWT_KEY).");
-        var key = Encoding.UTF8.GetBytes(keyStr);
+        var key = Encoding.UTF8.GetBytes(options.Key);
         var claims = new[]
         {
             new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
             new Claim(ClaimTypes.Name, user.Username)
         };
-
         var token = new JwtSecurityToken(
-            issuer: configuration["Jwt:Issuer"],
-            audience: configuration["Jwt:Audience"],
-            claims: claims,
+            options.Issuer,
+            options.Audience,
+            claims,
             expires: DateTime.UtcNow.AddHours(1),
             signingCredentials: new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256)
         );
-
         return new JwtSecurityTokenHandler().WriteToken(token);
     }
 

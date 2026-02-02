@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using SmartTaskTracker.API.Data;
+using SmartTaskTracker.API.Helpers;
 using SmartTaskTracker.API.Middleware;
 using SmartTaskTracker.API.Services;
 
@@ -35,12 +36,15 @@ else
     throw new InvalidOperationException("Database connection string must be set");
 }
 
-// JWT
-var jwtKey = builder.Configuration["Jwt:Key"] 
-    ?? Environment.GetEnvironmentVariable("JWT_KEY")
-    ?? throw new InvalidOperationException("JWT Key must be set in appsettings.json or JWT_KEY environment variable");
-var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "SmartTaskTracker";
-var jwtAudience = builder.Configuration["Jwt:Audience"] ?? "SmartTaskTracker";
+// JWT — resolve once, inject everywhere
+var jwtOptions = new JwtOptions
+{
+    Key = builder.Configuration["Jwt:Key"] ?? Environment.GetEnvironmentVariable("JWT_KEY")
+        ?? throw new InvalidOperationException("JWT Key must be set (Jwt:Key or JWT_KEY)."),
+    Issuer = builder.Configuration["Jwt:Issuer"] ?? "SmartTaskTracker",
+    Audience = builder.Configuration["Jwt:Audience"] ?? "SmartTaskTracker"
+};
+builder.Services.AddSingleton(jwtOptions);
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
@@ -51,9 +55,9 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidateAudience = true,
             ValidateLifetime = true,
             ValidateIssuerSigningKey = true,
-            ValidIssuer = jwtIssuer,
-            ValidAudience = jwtAudience,
-            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey))
+            ValidIssuer = jwtOptions.Issuer,
+            ValidAudience = jwtOptions.Audience,
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtOptions.Key))
         };
     });
 
