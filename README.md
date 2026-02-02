@@ -4,6 +4,8 @@
 **Intent:** Run locally, test features, deploy (Netlify + Render).  
 **Action:** See below.
 
+**Live:** [Frontend](https://smarttasktracker.netlify.app/) · [Backend API](https://smarttasktracker-kue7.onrender.com)
+
 ---
 
 ## Quick Start
@@ -40,9 +42,9 @@ Swagger: http://localhost:5000/swagger (dev only)
 SmartTaskTracker/
   README.md              ← you are here
   .gitignore              Git ignore rules
-  .env                    Local env vars (not committed; see docs/DEPLOYMENT.md)
-  render.yaml             Render backend + DB config
-  netlify.toml            Netlify frontend build config
+  .env                    Local frontend env (optional; VITE_API_URL fallback in api.js)
+  render.yaml             Render backend + DB config (Blueprint); env vars set in dashboard for manual deploy
+  netlify.toml            Netlify frontend build (base=frontend, publish=dist)
   docs/
     TESTING.md            Manual test checklist (State → Intent → Action)
     DEPLOYMENT.md         Deploy to Netlify + Render (step-by-step)
@@ -105,8 +107,9 @@ frontend/
 ### Backend (`backend/SmartTaskTracker.API/`)
 ```
 backend/SmartTaskTracker.API/
-  Program.cs               Entry + DI + CORS + DB init
-  appsettings.json         Config (DB, Jwt placeholders)
+  Program.cs               Entry + DI + CORS (FRONTEND_URL env) + DB init; seed if Development or SEED_DATABASE=true
+  Dockerfile               Build/run for Render (Docker)
+  appsettings.json         Config (DB only; JWT in appsettings.Development.json or env)
   SmartTaskTracker.API.csproj
   Controllers/             REST endpoints
     AuthController.cs      Register, login, refresh
@@ -168,10 +171,13 @@ Tasks: CRUD, priorities, tags, status, due dates, recurring, templates, subtasks
 
 ## Deploy
 
-1. Push to GitHub.
-2. Backend: Render (use `render.yaml`) — set `JWT_KEY`; use free PostgreSQL.
-3. Frontend: Netlify (use `netlify.toml`) — set `VITE_API_URL` to backend URL.
-4. Set `FRONTEND_URL` on Render to your Netlify URL.
+**Backend (Render):** Docker build from `backend/SmartTaskTracker.API` (see `Dockerfile`). Root Directory = `backend/SmartTaskTracker.API`, Environment = Docker. **Set in Render dashboard (Environment tab):** `JWT_KEY` (required, min 32 chars), `FRONTEND_URL` = your Netlify URL with `https://` (no trailing slash; required for CORS). PostgreSQL via Render free tier; `DATABASE_URL` auto-set if DB linked.
+
+**Frontend (Netlify):** Base directory = `frontend`, publish = `dist`. **Set in Netlify:** `VITE_API_URL` = your Render API URL (e.g. `https://your-api.onrender.com/api`).
+
+**CORS:** Backend allows only origins from `FRONTEND_URL` (and localhost). `FRONTEND_URL` must match the Netlify origin exactly (e.g. `https://smarttasktracker.netlify.app`).
+
+**Optional:** `SEED_DATABASE=true` on Render runs `DbSeeder` in production once; remove or set to `false` after.
 
 Full steps: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)
 

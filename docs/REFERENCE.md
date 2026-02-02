@@ -42,3 +42,13 @@ Full table/column list: see repo history (was `DATABASE_SCHEMA.md`).
 **Priority:** Critical = TaskService ✅; High = useTasks ✅, TaskCard, TaskModal; then services/hooks; then components.
 
 **Pattern:** State → Intent → Action. Backend: xUnit `[Fact]`; Frontend: Vitest `describe`/`it`.
+
+---
+
+## Deploy (Render + Netlify)
+
+**Backend (Render):** Docker (`backend/SmartTaskTracker.API/Dockerfile`). Root Dir = `backend/SmartTaskTracker.API`, Environment = Docker. **Env in dashboard:** `JWT_KEY` (required), `FRONTEND_URL` = Netlify URL with `https://` (required for CORS). DB = PostgreSQL (Render free); `DATABASE_URL` auto when linked. Optional: `SEED_DATABASE=true` to run seed once.
+
+**Frontend (Netlify):** Base dir = `frontend`, publish = `dist`. **Env:** `VITE_API_URL` = Render API URL (e.g. `https://xxx.onrender.com/api`).
+
+**CORS:** Backend allows only `FRONTEND_URL` + localhost. Set `FRONTEND_URL` in Render and redeploy. Full steps: [DEPLOYMENT.md](DEPLOYMENT.md).

@@ -2,6 +2,18 @@
 
 This guide will help you deploy SmartTaskTracker to **Netlify (frontend)** and **Render (backend)** for **FREE**.
 
+---
+
+## Quick reference (for AI / automation)
+
+- **Stack:** Frontend = React + Vite (Netlify). Backend = ASP.NET Core 9 (Render, Docker). DB = PostgreSQL (Render free).
+- **Backend (Render):** Build/run via **Docker** (`backend/SmartTaskTracker.API/Dockerfile`). **Root Directory** = `backend/SmartTaskTracker.API`. **Environment** = Docker. Leave build/start command empty. **Env vars (set in Render dashboard, not from render.yaml for manual deploy):** `JWT_KEY` (required, min 32 chars), `FRONTEND_URL` = Netlify origin with `https://` (no trailing slash; required for CORS). `DATABASE_URL` auto-set when PostgreSQL is linked.
+- **Frontend (Netlify):** **Base directory** = `frontend`, **publish** = `dist`. **Env var:** `VITE_API_URL` = Render API URL (e.g. `https://xxx.onrender.com/api`).
+- **CORS:** Backend allows only origins from `FRONTEND_URL` (and localhost). `FRONTEND_URL` must match Netlify URL exactly (e.g. `https://smarttasktracker.netlify.app`). Redeploy backend after setting.
+- **Optional:** `SEED_DATABASE=true` on Render runs `DbSeeder` in production once.
+
+---
+
 ## Environment Variables Template
 
 Use this as reference for **local** (`.env` in project root, not committed) and **production** (set in Render / Netlify dashboards).
@@ -10,12 +22,12 @@ Use this as reference for **local** (`.env` in project root, not committed) and 
 - **Frontend** — `.env` (root): `VITE_API_URL=http://localhost:5000/api`
 - **Backend** — `backend/SmartTaskTracker.API/appsettings.Development.json` (JWT only; not committed). One place for backend secrets, no duplicate with .env.
 
-**Production (set in Render):**
-- `DATABASE_URL` — auto-set when you add PostgreSQL
-- `JWT_KEY` — set manually (min 32 chars)
+**Production (set in Render dashboard — manual deploy does not apply env from render.yaml):**
+- `DATABASE_URL` — auto-set when you link PostgreSQL to the service
+- `JWT_KEY` — **required**, set manually (min 32 chars)
+- `FRONTEND_URL` — **required for CORS**, your Netlify URL with `https://`, no trailing slash (e.g. `https://smarttasktracker.netlify.app`)
 - `JWT_ISSUER`, `JWT_AUDIENCE` — optional (defaults in code)
-- `FRONTEND_URL` — your Netlify URL (after frontend deploys)
-- `ASPNETCORE_ENVIRONMENT`, `ASPNETCORE_URLS` — auto-set by render.yaml
+- `SEED_DATABASE` — optional; set to `true` to run seed in production once
 
 **Production (set in Netlify):**
 - `VITE_API_URL` — your Render backend URL, e.g. `https://your-api.onrender.com/api`
@@ -60,33 +72,34 @@ git push -u origin main
 2. Click **"New +"** → **"Web Service"**
 3. Connect your GitHub account if not already connected
 4. Select your **SmartTaskTracker** repository
-5. Render will automatically detect the `render.yaml` file
 
-### 2.2 Configure Service
+### 2.2 Configure Service (manual deploy)
 
-Render will read `render.yaml` and:
-- ✅ Create web service (backend API)
-- ✅ Create PostgreSQL database (free tier)
-- ✅ Set up environment variables
-- ✅ Configure build and start commands
+**Environment:** **Docker** (backend uses `backend/SmartTaskTracker.API/Dockerfile`; no native .NET build).
 
-**Important:** After the service is created, you need to:
+**Root Directory:** `backend/SmartTaskTracker.API`
 
-1. **Set JWT_KEY** (if not auto-generated):
-   - Go to your service → **Environment** tab
-   - Add: `JWT_KEY` = `your-super-secret-key-minimum-32-characters-long`
-   - Generate a secure random string (you can use: `openssl rand -base64 32`)
+**Build command:** Leave empty (Dockerfile handles build).
 
-2. **Note your backend URL:**
-   - Your backend will be at: `https://smarttasktracker-api.onrender.com`
-   - (Or whatever name Render assigns)
+**Start command:** Leave empty (Dockerfile `ENTRYPOINT` handles start).
+
+**Environment variables (set in Render → your service → Environment tab):**  
+*(For manual deploy, env vars from `render.yaml` are not applied; set these in the dashboard.)*
+
+| Key | Value | Required |
+|-----|-------|----------|
+| `JWT_KEY` | Your secret key (min 32 chars) | Yes |
+| `FRONTEND_URL` | Your Netlify URL, e.g. `https://smarttasktracker.netlify.app` (no trailing slash) | Yes (for CORS) |
+| `DATABASE_URL` | Auto-set when you add/link a PostgreSQL database | Yes (if using DB) |
+
+Optional: `SEED_DATABASE=true` to run `DbSeeder` in production once; remove or set to `false` after.
+
+**Add PostgreSQL:** Create a PostgreSQL instance (free) in Render and link it to the service so `DATABASE_URL` is set.
 
 ### 2.3 Wait for Deployment
 
-- First deployment takes 5-10 minutes
-- Render builds your .NET app
-- Creates PostgreSQL database
-- Starts the service
+- First deployment takes 5–10 minutes (Docker build)
+- Backend will be at e.g. `https://your-service-name.onrender.com`
 
 **✅ Backend is now live!**
 
@@ -132,18 +145,17 @@ Netlify will read `netlify.toml` and:
 
 ---
 
-## Step 4: Update CORS on Backend
+## Step 4: Set CORS (FRONTEND_URL) on Backend
 
 After frontend is deployed:
 
-1. Go back to **Render** → Your backend service
-2. Go to **Environment** tab
-3. Add/Update:
+1. Go to **Render** → Your backend service → **Environment** tab
+2. Add or update:
    - **Key:** `FRONTEND_URL`
-   - **Value:** `https://your-app-name.netlify.app`
-   - (Replace with your actual Netlify URL)
+   - **Value:** Your Netlify URL **with `https://`** and **no trailing slash**, e.g. `https://smarttasktracker.netlify.app`
+3. **Save** and **redeploy** the backend (env vars apply on next deploy)
 
-4. **Redeploy** the backend (Render will auto-redeploy when env vars change)
+CORS allows only origins from `FRONTEND_URL` (and localhost). Wrong or missing `FRONTEND_URL` causes "blocked by CORS policy" in the browser.
 
 ---
 
@@ -201,9 +213,7 @@ After frontend is deployed:
 | `JWT_KEY` | Your secret key | Min 32 chars, set manually |
 | `JWT_ISSUER` | SmartTaskTracker | Optional, defaults in code |
 | `JWT_AUDIENCE` | SmartTaskTracker | Optional, defaults in code |
-| `FRONTEND_URL` | Your Netlify URL | Set after frontend deploys |
-| `ASPNETCORE_ENVIRONMENT` | Production | Auto-set by render.yaml |
-| `ASPNETCORE_URLS` | http://0.0.0.0:$PORT | Auto-set by render.yaml |
+| `FRONTEND_URL` | Your Netlify URL (e.g. `https://smarttasktracker.netlify.app`) | **Required** for CORS; no trailing slash |
 
 ### Frontend (Netlify)
 
