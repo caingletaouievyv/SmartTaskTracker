@@ -166,7 +166,19 @@ function Tasks() {
   const [selectedPresetId, setSelectedPresetId] = useState('')
   const [selectedTags, setSelectedTags] = useState([])
   const searchInputRef = useRef(null)
+  const cardRefs = useRef({})
+  const [highlightedTaskId, setHighlightedTaskId] = useState(null)
   const { settings, loading: settingsLoading } = useSettings()
+
+  const handleScrollToTask = (taskId) => {
+    setHighlightedTaskId(taskId)
+    setTimeout(() => setHighlightedTaskId(null), 2000)
+  }
+  useEffect(() => {
+    if (highlightedTaskId && cardRefs.current[highlightedTaskId]) {
+      cardRefs.current[highlightedTaskId].scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }
+  }, [highlightedTaskId])
   const { dialog, alert, confirm, prompt } = useDialog()
   
   useEffect(() => {
@@ -1911,6 +1923,7 @@ function Tasks() {
             {sortedTasks.map((task, index) => (
               <div
                 key={task.id}
+                ref={(el) => { if (el) cardRefs.current[task.id] = el }}
                 data-task-id={task.id}
                 className="col-12 col-md-6 col-lg-4 mb-3"
                 draggable
@@ -1942,6 +1955,8 @@ function Tasks() {
                   onFilterByTag={handleFilterByTag}
                   onFilterByRecurrence={handleFilterByRecurrence}
                   onUpdateStatus={handleUpdateStatus}
+                  onScrollToTask={handleScrollToTask}
+                  isHighlighted={highlightedTaskId === task.id}
                 />
               </div>
             ))}

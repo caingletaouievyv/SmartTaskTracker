@@ -3,7 +3,7 @@ import { useTimer } from '../hooks/useTimer'
 import { formatDate } from '../utils/dateFormat'
 import TaskHistory from './TaskHistory'
 
-function TaskCard({ task, onEdit, onDelete, onToggleComplete, onDuplicate, onArchive, onUnarchive, isSelected, onSelect, uiFields, dateFormat, onTimeUpdate, onFilterByPriority, onFilterByTag, onFilterByRecurrence, onUpdateStatus }) {
+function TaskCard({ task, onEdit, onDelete, onToggleComplete, onDuplicate, onArchive, onUnarchive, isSelected, onSelect, uiFields, dateFormat, onTimeUpdate, onFilterByPriority, onFilterByTag, onFilterByRecurrence, onUpdateStatus, onScrollToTask, isHighlighted }) {
   const [showHistory, setShowHistory] = useState(false)
   const [showStatusDropdown, setShowStatusDropdown] = useState(false)
   const isCompleted = task.isCompleted || task.status === 'Completed' || task.status === 3
@@ -166,7 +166,7 @@ function TaskCard({ task, onEdit, onDelete, onToggleComplete, onDuplicate, onArc
 
   return (
     <div data-task-id={task.id}>
-      <div className={`card h-100 task-card-hover ${isDone ? 'task-completed' : ''} ${isSelected ? 'border-primary border-2' : ''}`}>
+      <div className={`card h-100 task-card-hover ${isDone ? 'task-completed' : ''} ${isSelected ? 'border-primary border-2' : ''} ${isHighlighted ? 'task-card-highlight' : ''}`}>
         <div className="card-body">
           <div className="d-flex align-items-center gap-2 mb-2">
             {onSelect && (
@@ -290,6 +290,22 @@ function TaskCard({ task, onEdit, onDelete, onToggleComplete, onDuplicate, onArc
             [data-theme="dark"] .status-dropdown-menu button:hover:not(.bg-primary) {
               background: rgba(255, 255, 255, 0.15) !important;
             }
+            .task-card-hover.task-card-highlight {
+              box-shadow: 0 0 0 2px var(--bs-primary);
+              animation: task-card-highlight-pulse 1s ease-out 2;
+            }
+            :root:not([data-theme="dark"]) .task-card-hover.task-card-highlight {
+              box-shadow: 0 0 0 3px var(--bs-primary), 0 0 0 5px rgba(0,0,0,0.1);
+              animation: task-card-highlight-pulse-light 0.75s ease-out 2;
+            }
+            @keyframes task-card-highlight-pulse {
+              0% { box-shadow: 0 0 0 3px var(--bs-primary); }
+              100% { box-shadow: 0 0 0 2px var(--bs-primary); }
+            }
+            @keyframes task-card-highlight-pulse-light {
+              0% { box-shadow: 0 0 0 4px var(--bs-primary), 0 0 0 6px rgba(0,0,0,0.15); }
+              100% { box-shadow: 0 0 0 3px var(--bs-primary), 0 0 0 5px rgba(0,0,0,0.1); }
+            }
             .task-card-hover .badge {
               max-width: min(150px, 100%);
               overflow: hidden;
@@ -398,14 +414,15 @@ function TaskCard({ task, onEdit, onDelete, onToggleComplete, onDuplicate, onArc
                     <span
                       key={idx}
                       className="badge bg-secondary"
-                      style={{ cursor: onEdit ? 'pointer' : 'default', fontSize: '0.75rem' }}
+                      style={{ cursor: (onScrollToTask || onEdit) ? 'pointer' : 'default', fontSize: '0.75rem' }}
                       onClick={(e) => {
-                        if (onEdit && task.dependsOnTaskIds && task.dependsOnTaskIds[idx]) {
-                          e.stopPropagation()
-                          onEdit({ id: task.dependsOnTaskIds[idx] })
-                        }
+                        const depId = task.dependsOnTaskIds?.[idx]
+                        if (!depId) return
+                        e.stopPropagation()
+                        if (onScrollToTask) onScrollToTask(depId)
+                        else if (onEdit) onEdit({ id: depId })
                       }}
-                      title={onEdit ? 'Click to edit' : title}
+                      title={onScrollToTask ? 'Go to task' : onEdit ? 'Click to edit' : title}
                     >
                       {title}
                     </span>
