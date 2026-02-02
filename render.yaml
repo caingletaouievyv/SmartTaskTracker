@@ -5,7 +5,6 @@ services:
     region: oregon
     plan: free
     rootDir: backend/SmartTaskTracker.API
-    # Build/start from Dockerfile; no buildCommand/startCommand needed
     envVars:
       - key: ASPNETCORE_ENVIRONMENT
         value: Production
@@ -23,7 +22,7 @@ services:
         value: SmartTaskTracker
       # Set this after deploying frontend - replace with your Netlify URL
       - key: FRONTEND_URL
-        value: https://your-app-name.netlify.app
+        value: smarttasktracker.netlify.app
 
 databases:
   - name: smarttasktracker-db

@@ -11,4 +11,4 @@
 [build.environment]
   # This will be set in Netlify dashboard after backend is deployed
   # Replace with your Render backend URL
-  VITE_API_URL = "https://smarttasktracker-api.onrender.com/api"
+  VITE_API_URL = "https://smarttasktracker-kue7.onrender.com/api"
