@@ -10,7 +10,7 @@ This guide will help you deploy SmartTaskTracker to **Netlify (frontend)** and *
 - **Backend (Render):** Build/run via **Docker** (`backend/SmartTaskTracker.API/Dockerfile`). **Root Directory** = `backend/SmartTaskTracker.API`. **Environment** = Docker. Leave build/start command empty. **Env vars (set in Render dashboard, not from render.yaml for manual deploy):** `JWT_KEY` (required, min 32 chars), `FRONTEND_URL` = Netlify origin with `https://` (no trailing slash; required for CORS). `DATABASE_URL` auto-set when PostgreSQL is linked.
 - **Frontend (Netlify):** **Base directory** = `frontend`, **publish** = `dist`. **Env var:** `VITE_API_URL` = Render API URL (e.g. `https://xxx.onrender.com/api`).
 - **CORS:** Backend allows only origins from `FRONTEND_URL` (and localhost). `FRONTEND_URL` must match Netlify URL exactly (e.g. `https://smarttasktracker.netlify.app`). Redeploy backend after setting.
-- **Optional:** `SEED_DATABASE=true` on Render runs `DbSeeder` in production once.
+- **Optional:** `SEED_DATABASE=true` on Render resets the seed user and runs `DbSeeder` on every startup; set to `false` when done so it stops.
 
 ---
 
@@ -27,7 +27,7 @@ Use this as reference for **local** (`.env` in project root, not committed) and 
 - `JWT_KEY` — **required**, set manually (min 32 chars)
 - `FRONTEND_URL` — **required for CORS**, your Netlify URL with `https://`, no trailing slash (e.g. `https://smarttasktracker.netlify.app`)
 - `JWT_ISSUER`, `JWT_AUDIENCE` — optional (defaults in code)
-- `SEED_DATABASE` — optional; set to `true` to run seed in production once
+- `SEED_DATABASE` — optional; `true` = reset seed user and run seed every startup; `false` = do nothing (set false when done)
 
 **Production (set in Netlify):**
 - `VITE_API_URL` — your Render backend URL, e.g. `https://your-api.onrender.com/api`
@@ -90,11 +90,16 @@ git push -u origin main
 |-----|-------|----------|
 | `JWT_KEY` | Your secret key (min 32 chars) | Yes |
 | `FRONTEND_URL` | Your Netlify URL, e.g. `https://smarttasktracker.netlify.app` (no trailing slash) | Yes (for CORS) |
-| `DATABASE_URL` | Auto-set when you add/link a PostgreSQL database | Yes (if using DB) |
+| `DATABASE_URL` | Auto-set when you link a PostgreSQL database (see below) | Yes (if using DB) |
 
 Optional: `SEED_DATABASE=true` to run `DbSeeder` in production once; remove or set to `false` after.
 
-**Add PostgreSQL:** Create a PostgreSQL instance (free) in Render and link it to the service so `DATABASE_URL` is set.
+**Add PostgreSQL (free):** Render doesn’t show a separate “Databases” page for free tier — you add the DB when creating the service or later:
+1. **New +** (top right) → **PostgreSQL** (not “Web Service”). Create it; note the **Internal Database URL** on its dashboard.
+2. **New +** → **Web Service** → connect repo, set Root Directory = `backend/SmartTaskTracker.API`, Environment = Docker.
+3. In the **Web Service** → **Environment** tab → **Add from Render PostgreSQL** (or paste the DB’s Internal URL as `DATABASE_URL`). Save and deploy.
+
+**Reseed:** With `SEED_DATABASE=true`, the app resets the seed user and runs the seeder on every startup. Set to `false` when done so it stops.
 
 ### 2.3 Wait for Deployment
 
@@ -214,6 +219,7 @@ CORS allows only origins from `FRONTEND_URL` (and localhost). Wrong or missing `
 | `JWT_ISSUER` | SmartTaskTracker | Optional, defaults in code |
 | `JWT_AUDIENCE` | SmartTaskTracker | Optional, defaults in code |
 | `FRONTEND_URL` | Your Netlify URL (e.g. `https://smarttasktracker.netlify.app`) | **Required** for CORS; no trailing slash |
+| `SEED_DATABASE` | `true` / `false` | Optional; `true` = reset seed user and seed every startup; `false` = stop |
 
 ### Frontend (Netlify)
 

@@ -112,8 +112,10 @@ using (var scope = app.Services.CreateScope())
     {
         db.Database.EnsureCreated();
     }
-    if (app.Environment.IsDevelopment() || string.Equals(Environment.GetEnvironmentVariable("SEED_DATABASE"), "true", StringComparison.OrdinalIgnoreCase))
+    var seedDb = app.Environment.IsDevelopment() || string.Equals(Environment.GetEnvironmentVariable("SEED_DATABASE"), "true", StringComparison.OrdinalIgnoreCase);
+    if (seedDb)
     {
+        DbSeeder.ClearSeedData(db);
         DbSeeder.SeedData(db);
     }
 }

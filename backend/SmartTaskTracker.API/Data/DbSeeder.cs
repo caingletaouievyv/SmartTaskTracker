@@ -7,6 +7,28 @@ namespace SmartTaskTracker.API.Data;
 
 public static class DbSeeder
 {
+    /// <summary>Removes seed user "testuser" and all related data so SeedData can run fresh. Only use when RESEED_DATABASE=true.</summary>
+    public static void ClearSeedData(AppDbContext context)
+    {
+        var user = context.Users.FirstOrDefault(u => u.Username == "testuser");
+        if (user == null) return;
+
+        var taskIds = context.Tasks.Where(t => t.UserId == user.Id).Select(t => t.Id).ToList();
+        if (taskIds.Count > 0)
+        {
+            context.TaskDependencies.RemoveRange(context.TaskDependencies.Where(d => taskIds.Contains(d.TaskId) || taskIds.Contains(d.DependsOnTaskId)));
+            context.TaskTags.RemoveRange(context.TaskTags.Where(tt => taskIds.Contains(tt.TaskId)));
+            context.SaveChanges();
+        }
+        context.TaskHistories.RemoveRange(context.TaskHistories.Where(h => h.UserId == user.Id));
+        context.Tasks.RemoveRange(context.Tasks.Where(t => t.UserId == user.Id));
+        context.Tags.RemoveRange(context.Tags.Where(t => t.UserId == user.Id));
+        context.TaskTemplates.RemoveRange(context.TaskTemplates.Where(t => t.UserId == user.Id));
+        context.UserSettings.RemoveRange(context.UserSettings.Where(s => s.UserId == user.Id));
+        context.Users.Remove(user);
+        context.SaveChanges();
+    }
+
     public static void SeedData(AppDbContext context)
     {
         var user = context.Users.FirstOrDefault(u => u.Username == "testuser");

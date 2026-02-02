@@ -177,7 +177,7 @@ Tasks: CRUD, priorities, tags, status, due dates, recurring, templates, subtasks
 
 **CORS:** Backend allows only origins from `FRONTEND_URL` (and localhost). `FRONTEND_URL` must match the Netlify origin exactly (e.g. `https://smarttasktracker.netlify.app`).
 
-**Optional:** `SEED_DATABASE=true` on Render runs `DbSeeder` in production once; remove or set to `false` after.
+**Optional:** `SEED_DATABASE=true` on Render resets the seed user and runs `DbSeeder` every startup; set to `false` when done — see [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
 Full steps: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)
 
