@@ -204,7 +204,7 @@ function Tasks() {
     saveSortBy()
   }, [sortBy, settings.rememberSortBy])
   
-  const effectiveSortBy = sortBy || settings.defaultSortBy
+  const effectiveSortBy = sortBy || (settings.rememberSortBy && settings.lastSortBy) || settings.defaultSortBy || 'date'
   
   // Calculate backend filter params from quickFilter (memoized to prevent infinite loop)
   const dueDate = quickFilter === 'today' ? 'today' 
