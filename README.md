@@ -14,7 +14,7 @@
 
 | Step | Backend | Frontend |
 |------|---------|----------|
-| Setup | `cd backend/SmartTaskTracker.API` → create `appsettings.Development.json` with `Jwt:Key` (min 32 chars) or set `JWT_KEY` env | `cd frontend` → `npm install` |
+| Setup | `cd backend/SmartTaskTracker.API` → create `appsettings.Development.json` with `Jwt:Key` (min 32 chars) or set `JWT_KEY` env. For semantic search (local): set `TaskMemory:ApiKey` to your [Hugging Face token](https://huggingface.co/settings/tokens) (or env `TASKMEMORY_API_KEY` / `HF_TOKEN`) | `cd frontend` → `npm install` |
 | Run | `dotnet run` → http://localhost:5000 | `npm run dev` → http://localhost:5173 |
 | Test | `cd backend/SmartTaskTracker.API.Tests` → `dotnet test` | `cd frontend` → `npm test` |
 
@@ -81,7 +81,7 @@ frontend/
       AuthContext.jsx     Auth state + login/logout/refresh
       ThemeContext.jsx    Dark/light + accent
     hooks/                 Custom hooks
-      useTasks.js         Task CRUD + list state
+      useTasks.js         Task CRUD + list state (search = semantic + keyword fallback)
       useSettings.js      Load/save user settings
       useDialog.js        Dialog open/close state
       useTimer.js         Time tracking timer
@@ -90,7 +90,7 @@ frontend/
     services/              API clients (Axios)
       api.js              Axios instance + auth interceptors
       authService.js      Register, login, refresh
-      taskService.js      Task CRUD, ai-suggestions
+      taskService.js      Task CRUD, search (keyword/semantic), ai-suggestions
       taskTemplateService.js  Template CRUD
       tagService.js       Tag CRUD
       settingsService.js  User settings API
@@ -113,7 +113,7 @@ backend/SmartTaskTracker.API/
   SmartTaskTracker.API.csproj
   Controllers/             REST endpoints
     AuthController.cs      Register, login, refresh
-    TasksController.cs     Task CRUD, bulk, archive, subtasks, dependencies, import, ai-suggestions
+    TasksController.cs     Task CRUD, bulk, archive, subtasks, dependencies, import, search, ai-suggestions
     TaskTemplatesController.cs  Template CRUD
     TagsController.cs      Tag CRUD
     SettingsController.cs  User settings
@@ -123,6 +123,7 @@ backend/SmartTaskTracker.API/
     TaskTemplateService.cs Template logic
     TagService.cs          Tag + color
     SettingsService.cs     User settings
+    TaskMemoryService.cs    Semantic search only (lazy embeddings)
   Models/                   Domain entities
     User.cs                User + refresh token
     Task.cs                Task (priority, status, recurrence, etc.)
@@ -147,6 +148,9 @@ backend/SmartTaskTracker.API/
   Helpers/
     JwtHelper.cs            JWT + refresh token generation
     TaskMapper.cs           Entity ↔ DTO
+    TaskMemoryOptions.cs    TaskMemory config (provider, topK, cache, timeout, maxText, concurrency)
+    TaskIntent.cs           Keyword, Semantic
+    LRUCache.cs             LRU cache for embeddings
   Middleware/
     ErrorHandlingMiddleware.cs  Global error handling
   Properties/

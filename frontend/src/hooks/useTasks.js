@@ -8,8 +8,14 @@ export function useTasks(search = '', status = '', sortBy = '', includeArchived 
   const fetchTasks = async () => {
     try {
       setLoading(true)
-      const data = await taskService.getAll(search, status, sortBy, includeArchived, dueDate, priority, tags)
-      setTasks(data)
+      const trimmed = (search || '').trim()
+      if (trimmed) {
+        const data = await taskService.search(trimmed)
+        setTasks(Array.isArray(data) ? data.map((r) => r.task) : [])
+      } else {
+        const data = await taskService.getAll(search, status, sortBy, includeArchived, dueDate, priority, tags)
+        setTasks(data)
+      }
     } catch (err) {
       console.error('Failed to fetch tasks:', err)
     } finally {

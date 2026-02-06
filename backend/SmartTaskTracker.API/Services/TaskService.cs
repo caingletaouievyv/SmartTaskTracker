@@ -36,17 +36,17 @@ public class TaskService
 
         if (!string.IsNullOrWhiteSpace(search))
         {
-            var searchLower = search.ToLower();
+            var searchLower = search.Trim().ToLower();
+            var alsoMatch = searchLower.Length > 1 && searchLower.EndsWith('s') ? searchLower[..^1] : null;
             var taskIdsWithMatchingTags = await _context.TaskTags
-                .Where(tt => tt.Tag.Name.ToLower().Contains(searchLower))
+                .Where(tt => tt.Tag.Name.ToLower().Contains(searchLower) || (alsoMatch != null && tt.Tag.Name.ToLower().Contains(alsoMatch)))
                 .Select(tt => tt.TaskId)
                 .Distinct()
                 .ToListAsync();
-            
-            query = query.Where(t => 
-                t.Title.ToLower().Contains(searchLower) || 
-                (t.Description != null && t.Description.ToLower().Contains(searchLower)) ||
-                (t.FileName != null && t.FileName.ToLower().Contains(searchLower)) ||
+            query = query.Where(t =>
+                t.Title.ToLower().Contains(searchLower) || (alsoMatch != null && t.Title.ToLower().Contains(alsoMatch)) ||
+                (t.Description != null && (t.Description.ToLower().Contains(searchLower) || (alsoMatch != null && t.Description.ToLower().Contains(alsoMatch)))) ||
+                (t.FileName != null && (t.FileName.ToLower().Contains(searchLower) || (alsoMatch != null && t.FileName.ToLower().Contains(alsoMatch)))) ||
                 taskIdsWithMatchingTags.Contains(t.Id)
             );
         }

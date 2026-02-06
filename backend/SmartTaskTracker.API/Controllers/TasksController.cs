@@ -2,6 +2,7 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SmartTaskTracker.API.DTOs;
+using SmartTaskTracker.API.Helpers;
 using SmartTaskTracker.API.Services;
 
 namespace SmartTaskTracker.API.Controllers;
@@ -12,10 +13,14 @@ namespace SmartTaskTracker.API.Controllers;
 public class TasksController : ControllerBase
 {
     private readonly TaskService _taskService;
+    private readonly TaskMemoryService _taskMemoryService;
+    private readonly IWebHostEnvironment _env;
 
-    public TasksController(TaskService taskService)
+    public TasksController(TaskService taskService, TaskMemoryService taskMemoryService, IWebHostEnvironment env)
     {
         _taskService = taskService;
+        _taskMemoryService = taskMemoryService;
+        _env = env;
     }
 
     private int GetUserId() => int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
@@ -87,6 +92,37 @@ public class TasksController : ControllerBase
     {
         var reminders = await _taskService.GetRemindersAsync(GetUserId(), hoursAhead);
         return Ok(reminders);
+    }
+
+    [HttpGet("embedding-check")]
+    public async Task<ActionResult<object>> EmbeddingCheck()
+    {
+        if (!_env.IsDevelopment()) return NotFound();
+        var (ok, reason) = await _taskMemoryService.GetEmbeddingDiagnosticAsync();
+        return Ok(new { ok, reason });
+    }
+
+    [HttpGet("search")]
+    public async Task<ActionResult<List<TaskSearchResultDto>>> Search(
+        [FromQuery] string? query,
+        [FromQuery] TaskIntent? intent = null,
+        [FromQuery] int? topK = null,
+        [FromQuery] double? threshold = null)
+    {
+        var useSemantic = intent != TaskIntent.Keyword;
+        if (useSemantic)
+        {
+            var results = await _taskMemoryService.SearchSemanticAsync(GetUserId(), query ?? "", topK, threshold);
+            if (results.Count == 0 && !string.IsNullOrWhiteSpace(query))
+            {
+                var tasks = await _taskService.GetTasksAsync(GetUserId(), query, null, null, false);
+                results = tasks.Select(t => new TaskSearchResultDto { Task = t, Score = null }).ToList();
+                Response.Headers.Append("X-Search-Fallback", "keyword");
+            }
+            return Ok(results);
+        }
+        var keywordTasks = await _taskService.GetTasksAsync(GetUserId(), query, null, null, false);
+        return Ok(keywordTasks.Select(t => new TaskSearchResultDto { Task = t, Score = null }).ToList());
     }
 
     [HttpGet("ai-suggestions")]

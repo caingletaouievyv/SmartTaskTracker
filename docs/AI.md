@@ -29,12 +29,12 @@
 **Intent:** Keyword search, semantic search, AI suggestion, filter.  
 **Action:** Load/compute embeddings (lazy), classify intent, retrieve with threshold.
 
-**New backend:** `TaskMemoryService`, `TaskIntent` enum, `TaskEmbedding`/state; endpoints: `GET /api/tasks/search?query=&intent=`, `GET /api/tasks/ai-suggestions`, dev-only debug.
+**New backend:** `TaskMemoryService`, `TaskIntent` enum; endpoints: `GET /api/tasks/search?query=&intent=`, `GET /api/tasks/ai-suggestions`, dev-only `embedding-check`.
 
 **Lazy:** Embeddings only when semantic search requested; LRU cache; no precompute on startup.
 
 **Embeddings:** Hugging Face API (recommended) or local ONNX. Config: `TaskMemory.EmbeddingProvider`, `DefaultThreshold`, `DefaultTopK`, `CacheSize`.
 
-**File layout:** `TaskMemoryService.cs`, `TaskMemoryState.cs`, `TaskIntent.cs`, `TaskEmbedding.cs`, DTOs `TaskSearchDto`, `TaskContextDto`, helper `LRUCache.cs`.
+**File layout:** `TaskMemoryService.cs`, `TaskIntent.cs`, `TaskMemoryOptions.cs`, DTOs `TaskSearchDto`, helper `LRUCache.cs`.
 
 Full design details: see repo history (was `IA_DESIGN.md` + `AI_USE_CASES.md`).

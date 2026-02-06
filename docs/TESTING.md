@@ -634,6 +634,36 @@ npm test
 
 ---
 
+### Test 45: Search (semantic with keyword fallback)
+
+**State:** Task list displayed, search box visible  
+**Intent:** Find tasks by meaning; fallback to keyword when no semantic match  
+**Action:** Type in search box
+
+1. Type a phrase (e.g. `things to discuss with the team` or `meetings`).
+2. ✅ List shows tasks by semantic similarity. If no semantic results (or no API key), backend falls back to keyword search and list shows keyword matches.
+3. Clear search or click **Clear Filter** → ✅ List shows all (or filtered by other filters).
+
+**Validation:**
+- Search is always semantic-first; keyword fallback when semantic returns 0 (or API unavailable).
+- No dropdown; one search box.
+
+**Semantic query expectations (seed data):**  
+Semantic = embedding similarity on **title + description + priority label + tag names + first 100 chars of notes**. Results have a `score`; order and extra hits depend on threshold (default 0.25).
+
+| Query | Expect (seed tasks) | Note |
+|-------|---------------------|------|
+| `meetings` | **Complete sprint retrospective** first | May also get Schedule dentist appointment, Plan weekend trip (scores above threshold). |
+| `things to discuss with the team` | **Complete sprint retrospective** first; may get Plan weekend trip | No "meeting" in query → semantic. |
+| `writing docs or documentation` | **Complete project documentation** | |
+| `food or shopping for food` | **Buy groceries** first | May get Plan weekend trip (description has "restaurants"). |
+| `dentist or health checkup` | **Schedule dentist appointment** | |
+| `code review or pull request` | **Review code changes** | |
+| `vacation or weekend travel` | **Plan weekend trip** | No "trip" in query → semantic. |
+| `urgent work` | May get **Complete project documentation**, **Review code changes** (both High priority / Urgent tag in seed) | We embed priority label + tag names; "urgent work" can match. Order may vary. |
+
+---
+
 ### Test 46: Suggested next (“What’s next?”)
 
 **State:** Task list displayed  

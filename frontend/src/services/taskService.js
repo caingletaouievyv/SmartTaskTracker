@@ -83,6 +83,14 @@ export const taskService = {
     return data
   },
 
+  search: async (query, topK = null, threshold = null) => {
+    const params = { query: query || '' }
+    if (topK != null) params.topK = topK
+    if (threshold != null) params.threshold = threshold
+    const { data } = await api.get('/tasks/search', { params })
+    return data
+  },
+
   getAiSuggestions: async (topK = null) => {
     const params = topK != null ? { topK } : {}
     const { data } = await api.get('/tasks/ai-suggestions', { params })

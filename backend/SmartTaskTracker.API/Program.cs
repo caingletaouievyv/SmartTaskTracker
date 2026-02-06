@@ -67,6 +67,9 @@ builder.Services.AddScoped<TaskService>();
 builder.Services.AddScoped<TaskTemplateService>();
 builder.Services.AddScoped<SettingsService>();
 builder.Services.AddScoped<TagService>();
+builder.Services.Configure<TaskMemoryOptions>(builder.Configuration.GetSection(TaskMemoryOptions.SectionName));
+builder.Services.AddHttpClient();
+builder.Services.AddScoped<TaskMemoryService>();
 
 var frontendUrl = Environment.GetEnvironmentVariable("FRONTEND_URL")?.Trim();
 var origins = string.IsNullOrEmpty(frontendUrl)

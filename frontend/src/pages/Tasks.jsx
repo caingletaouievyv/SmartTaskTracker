@@ -258,28 +258,7 @@ function Tasks() {
   const [draggedTaskId, setDraggedTaskId] = useState(null)
   const [dragOverIndex, setDragOverIndex] = useState(null)
 
-  // Backend now handles all filtering (quick filters, priority, tags, due date)
-  // Frontend only refines search results by configured fields
-  // Use useMemo to prevent infinite loop
-  const tasks = useMemo(() => {
-    if (!search || !settings.searchFields) return allTasks
-    
-    const searchLower = search.toLowerCase()
-    const searchFields = settings.searchFields || {
-      title: true,
-      description: true,
-      fileName: true
-    }
-    
-    return allTasks.filter(task => {
-      if (searchFields.title && task.title?.toLowerCase().includes(searchLower)) return true
-      if (searchFields.description && task.description?.toLowerCase().includes(searchLower)) return true
-      if (searchFields.fileName && task.fileName?.toLowerCase().includes(searchLower)) return true
-      // Tags is now a dictionary: { tagName: color }
-      if (task.tags && Object.keys(task.tags).some(tag => tag.toLowerCase().includes(searchLower))) return true
-      return false
-    })
-  }, [allTasks, search, settings.searchFields])
+  const tasks = allTasks
   
   // Only apply drag/drop ordering when explicitly selected
   const sortedTasks = useMemo(() => {
@@ -1824,7 +1803,7 @@ function Tasks() {
               ref={searchInputRef}
               type="text"
               className="form-control"
-              placeholder="🔍 Search tasks..."
+              placeholder="Search tasks..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
