@@ -601,3 +601,11 @@ small, .small {
   background-color: #2a2a3e !important;
   border-color: #4a4a5e !important;
 }
+
+[data-theme="dark"] .suggestions-panel,
+[data-theme="dark"] .suggestions-panel .btn-link {
+  color: #fff !important;
+}
+[data-theme="dark"] .suggestions-panel .text-muted {
+  color: rgba(255, 255, 255, 0.75) !important;
+}

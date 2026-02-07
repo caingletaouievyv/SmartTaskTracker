@@ -12,6 +12,7 @@ public class TaskTemplateService
     private readonly AppDbContext _context;
     private static readonly JsonSerializerOptions JsonOptions = new JsonSerializerOptions
     {
+        PropertyNameCaseInsensitive = true,
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
         WriteIndented = false
     };
@@ -70,7 +71,7 @@ public class TaskTemplateService
             RecurrenceEndDate = template.RecurrenceEndDate,
             Subtasks = string.IsNullOrWhiteSpace(template.SubtasksJson) 
                 ? null 
-                : JsonSerializer.Deserialize<List<SubtaskTemplateDto>>(template.SubtasksJson),
+                : JsonSerializer.Deserialize<List<SubtaskTemplateDto>>(template.SubtasksJson, JsonOptions),
             Notes = template.Notes,
             EstimatedTimeMinutes = template.EstimatedTimeMinutes,
             FileUrl = template.FileUrl,
@@ -121,7 +122,7 @@ public class TaskTemplateService
             RecurrenceEndDate = template.RecurrenceEndDate,
             Subtasks = string.IsNullOrWhiteSpace(template.SubtasksJson) 
                 ? null 
-                : JsonSerializer.Deserialize<List<SubtaskTemplateDto>>(template.SubtasksJson),
+                : JsonSerializer.Deserialize<List<SubtaskTemplateDto>>(template.SubtasksJson, JsonOptions),
             Notes = template.Notes,
             EstimatedTimeMinutes = template.EstimatedTimeMinutes,
             FileUrl = template.FileUrl,

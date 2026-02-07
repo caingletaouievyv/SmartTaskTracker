@@ -443,12 +443,14 @@ function TaskCard({ task, onEdit, onDelete, onToggleComplete, onDuplicate, onArc
               </small>
               {task.subtasks && task.subtasks.length > 0 && (
                 <div className="mt-1">
-                  {task.subtasks.map(subtask => (
+                  {task.subtasks.map(subtask => {
+                    const subtaskCompleted = subtask.isCompleted || subtask.status === 'Completed' || subtask.status === 3 || subtask.statusName === 'Completed'
+                    return (
                     <div key={subtask.id} className="d-flex align-items-center mb-1">
                       <input
                         type="checkbox"
                         className="form-check-input me-2"
-                        checked={subtask.isCompleted || subtask.status === 'Completed' || subtask.status === 3}
+                        checked={!!subtaskCompleted}
                         onChange={(e) => {
                           e.stopPropagation()
                           if (onToggleComplete) {
@@ -458,7 +460,7 @@ function TaskCard({ task, onEdit, onDelete, onToggleComplete, onDuplicate, onArc
                         style={{ minWidth: '1rem', minHeight: '1rem' }}
                       />
                       <small 
-                        className={`flex-grow-1 ${subtask.isCompleted || subtask.status === 'Completed' || subtask.status === 3 ? 'text-decoration-line-through text-muted' : ''}`}
+                        className={`flex-grow-1 ${subtaskCompleted ? 'text-decoration-line-through text-muted' : ''}`}
                         style={{ cursor: 'pointer' }}
                         onClick={(e) => {
                           e.stopPropagation()
@@ -471,7 +473,9 @@ function TaskCard({ task, onEdit, onDelete, onToggleComplete, onDuplicate, onArc
                         {subtask.title}
                       </small>
                     </div>
-                  ))}
+                  )
+                  })
+                }
                 </div>
               )}
             </div>

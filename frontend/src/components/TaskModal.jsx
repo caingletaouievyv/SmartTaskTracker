@@ -763,7 +763,7 @@ function TaskModal({ show, onClose, onSubmit, task, isEditing, submitting = fals
                 <label className="form-label">Status</label>
                 <select
                   className="form-select"
-                  value={formData.status}
+                  value={isBlocked ? 'Blocked' : formData.status}
                   onChange={(e) => setFormData({ ...formData, status: e.target.value })}
                   disabled={submitting || isBlocked}
                 >
@@ -772,6 +772,7 @@ function TaskModal({ show, onClose, onSubmit, task, isEditing, submitting = fals
                   <option value="OnHold">On Hold</option>
                   <option value="Completed">Completed</option>
                   <option value="Cancelled">Cancelled</option>
+                  <option value="Blocked">Blocked</option>
                 </select>
                 {isBlocked && (
                   <small className="text-muted">Blocked — complete dependencies first to change status.</small>

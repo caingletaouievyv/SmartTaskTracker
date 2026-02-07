@@ -86,7 +86,7 @@ function BulkActionsBar({ selectedCount, selectedTasks, tasks, onBulkDelete, onB
                 onClick={() => setShowStatusDropdown(false)}
               />
               <div 
-                className="position-absolute border rounded shadow-lg p-1 mt-1"
+                className="position-absolute border rounded shadow-lg p-1 mt-1 status-dropdown-menu"
                 style={{ 
                   zIndex: 1000, 
                   minWidth: '180px',
@@ -167,12 +167,19 @@ function Tasks() {
   const [selectedTags, setSelectedTags] = useState([])
   const searchInputRef = useRef(null)
   const cardRefs = useRef({})
+  const editFromModalRef = useRef(false) // true when subtask was opened from inside TaskModal
   const [highlightedTaskId, setHighlightedTaskId] = useState(null)
   const { settings, loading: settingsLoading } = useSettings()
 
-  const handleScrollToTask = (taskId) => {
-    setHighlightedTaskId(taskId)
-    setTimeout(() => setHighlightedTaskId(null), 2000)
+  const scrollToTaskThenEdit = (taskOrId) => {
+    const id = typeof taskOrId === 'object' && taskOrId != null ? taskOrId.id : taskOrId
+    if (id == null) return
+    setHighlightedTaskId(id)
+    const task = typeof taskOrId === 'object' && taskOrId != null ? taskOrId : allTasks.find((t) => t.id === id) || { id }
+    setTimeout(() => {
+      setHighlightedTaskId(null)
+      handleEdit(task)
+    }, 450)
   }
   useEffect(() => {
     if (highlightedTaskId && cardRefs.current[highlightedTaskId]) {
@@ -424,7 +431,7 @@ function Tasks() {
   }
 
   const handleEdit = async (task) => {
-    // Always fetch fresh task data to ensure subtasks are included
+    editFromModalRef.current = showModal // opened from modal (subtask in modal) vs card
     try {
       const freshTask = await taskService.getById(task.id)
       // Sort subtasks by customOrder
@@ -736,14 +743,22 @@ function Tasks() {
       
       await refreshTasks()
 
-      // If editing a subtask, switch to parent task instead of closing
+      // Subtask: switch to parent only if we opened from inside the modal; else close and go back to list
       if (editingTask?.parentTaskId) {
-        try {
-          const parentTask = await taskService.getById(editingTask.parentTaskId)
-          setEditingTask(parentTask)
-          // Modal stays open, just switch to parent task
-        } catch (err) {
-          console.error('Failed to fetch parent task:', err)
+        if (editFromModalRef.current) {
+          try {
+            const parentId = editingTask.parentTaskId
+            const parentTask = await taskService.getById(parentId)
+            if (cardRefs.current[parentId]) {
+              cardRefs.current[parentId].scrollIntoView({ behavior: 'instant', block: 'center' })
+            }
+            setEditingTask(parentTask)
+          } catch (err) {
+            console.error('Failed to fetch parent task:', err)
+            setShowModal(false)
+            setEditingTask(null)
+          }
+        } else {
           setShowModal(false)
           setEditingTask(null)
         }
@@ -969,12 +984,13 @@ function Tasks() {
     try {
       // Preserve scroll position (teleport, no animation)
       const scrollPosition = window.scrollY
-      if (isTaskBlocked(task)) {
+      const isSubtask = !!task.parentTaskId
+      if (!isSubtask && isTaskBlocked(task)) {
         await alert('This task is blocked. Complete its dependencies first.', 'Blocked')
         return
       }
 
-      const isCurrentlyCompleted = task.isCompleted || task.status === 'Completed' || task.status === 3
+      const isCurrentlyCompleted = task.isCompleted || task.status === 'Completed' || task.status === 3 || task.statusName === 'Completed'
       const newStatus = isCurrentlyCompleted ? statusToEnum('Active') : statusToEnum('Completed')
       
       let currentTask = task
@@ -1919,31 +1935,37 @@ function Tasks() {
         </div>
 
         {showSuggestions && (
-          <div className="mb-3 p-2 border rounded" style={{ backgroundColor: 'var(--bs-secondary-bg)' }}>
-            <div className="d-flex justify-content-between align-items-center mb-2">
-              <span className="small fw-semibold">Suggested next</span>
-              <button type="button" className="btn btn-sm btn-link p-0" onClick={() => setShowSuggestions(false)} aria-label="Close">×</button>
+          <div className="modal show d-block" role="dialog" aria-modal="true" aria-labelledby="suggestions-modal-title" tabIndex={-1} style={{ backgroundColor: 'rgba(0,0,0,0.5)' }} onClick={() => setShowSuggestions(false)}>
+            <div className="modal-dialog modal-dialog-centered" onClick={(e) => e.stopPropagation()}>
+              <div className="modal-content suggestions-panel">
+                <div className="modal-header">
+                  <h5 id="suggestions-modal-title" className="modal-title">Suggested next</h5>
+                  <button type="button" className="btn-close" onClick={() => setShowSuggestions(false)} aria-label="Close suggestions" />
+                </div>
+                <div className="modal-body">
+                  {suggestionsLoading ? (
+                    <p className="mb-0 text-muted small">Loading…</p>
+                  ) : suggestions.length === 0 ? (
+                    <p className="mb-0 text-muted small">No suggestions.</p>
+                  ) : (
+                    <ul className="list-unstyled mb-0">
+                      {suggestions.map((s) => (
+                        <li key={s.task?.id} className="border-bottom border-secondary border-opacity-25 last:border-b-0">
+                          <button
+                            type="button"
+                            className="btn btn-link text-start p-2 w-100 text-decoration-none d-flex flex-column align-items-start gap-1"
+                            onClick={() => { setShowSuggestions(false); scrollToTaskThenEdit(s.task) }}
+                          >
+                            <span>{s.task?.title}</span>
+                            {s.reason ? <span className="small text-muted">{s.reason}</span> : null}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              </div>
             </div>
-            {suggestionsLoading ? (
-              <span className="small text-muted">Loading…</span>
-            ) : suggestions.length === 0 ? (
-              <span className="small text-muted">No suggestions.</span>
-            ) : (
-              <ul className="list-unstyled mb-0 small">
-                {suggestions.map((s) => (
-                  <li key={s.task?.id}>
-                    <button
-                      type="button"
-                      className="btn btn-link btn-sm text-start p-0 text-decoration-none"
-                      onClick={() => { setShowSuggestions(false); handleEdit(s.task) }}
-                    >
-                      {s.task?.title}
-                      {s.reason ? <span className="text-muted ms-1">({s.reason})</span> : null}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
           </div>
         )}
 
@@ -2008,7 +2030,7 @@ function Tasks() {
                   onFilterByTag={handleFilterByTag}
                   onFilterByRecurrence={handleFilterByRecurrence}
                   onUpdateStatus={handleUpdateStatus}
-                  onScrollToTask={handleScrollToTask}
+                  onScrollToTask={scrollToTaskThenEdit}
                   isHighlighted={highlightedTaskId === task.id}
                 />
               </div>
