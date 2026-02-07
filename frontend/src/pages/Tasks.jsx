@@ -526,6 +526,22 @@ function Tasks() {
     return statusMap[status] ?? 0
   }
 
+  const isEditUnchanged = (task, payload, formData) => {
+    const norm = (v) => (v ?? '').toString().trim()
+    if (norm(payload.title) !== norm(task.title)) return false
+    if (norm(payload.description) !== norm(task.description)) return false
+    if ((payload.dueDate || null) !== (task.dueDate || null)) return false
+    if ((payload.priority ?? 1) !== (task.priority ?? 1)) return false
+    if ((payload.status ?? 0) !== (task.status ?? 0)) return false
+    const taskTagIds = (task.tags || []).map((t) => t?.id ?? t).filter(Boolean).sort()
+    const formTagIds = (formData.tags || []).map((t) => (typeof t === 'object' ? t?.id : t) ?? t).filter(Boolean).sort()
+    if (JSON.stringify(taskTagIds) !== JSON.stringify(formTagIds)) return false
+    const a = (task.dependsOnTaskIds || []).slice().sort()
+    const b = (formData.dependsOnTaskIds || []).slice().sort()
+    if (JSON.stringify(a) !== JSON.stringify(b)) return false
+    return true
+  }
+
   const handleUpdateStatus = async (taskId, newStatus) => {
     try {
       // Preserve scroll position (teleport, no animation)
@@ -616,6 +632,13 @@ function Tasks() {
         }
         if (editingTask.customOrder != null) {
           updatePayload.customOrder = editingTask.customOrder
+        }
+        
+        if (isEditUnchanged(editingTask, updatePayload, formData)) {
+          setShowModal(false)
+          setEditingTask(null)
+          setSubmitting(false)
+          return
         }
         
         await taskService.update(editingTask.id, updatePayload)
