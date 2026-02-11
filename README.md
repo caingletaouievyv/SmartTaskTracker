@@ -173,7 +173,7 @@ backend/SmartTaskTracker.API.Tests/
 
 ## Features (short)
 
-Tasks: CRUD, priorities, tags, status, due dates, recurring, templates, subtasks, dependencies, time tracking, calendar, CSV import/export, search/filter/sort, bulk ops, keyboard shortcuts, dark mode, settings, browser notifications. **Render free tier:** First request may wake server (30–60s); app shows banner and auto-retries. 401 → clear session, redirect to login.
+Tasks: CRUD, priorities, tags, status, due dates, recurring, templates, subtasks, dependencies, time tracking, calendar, CSV import/export, search/filter/sort, bulk ops, keyboard shortcuts, dark mode, settings, browser notifications. **Planned ([docs/AI.md](docs/AI.md)):** Semantic search, natural-language tasks. **Render free tier:** First request may wake server (30–60s); app shows banner and auto-retries. 401 → clear session, redirect to login.
 
 ---
 

@@ -2,7 +2,7 @@
 
 **State:** Planned AI features; IA pattern (State → Intent → Action).  
 **Intent:** Implement after deployment.  
-**Action:** Phase 1 → Semantic Search, Smart Categorization, Task Suggestions.
+**Action:** Phase 1 → Semantic Search, Smart Categorization.
 
 ---
 
@@ -11,7 +11,6 @@
 | Feature | What | How |
 |---------|------|-----|
 | **Semantic search** | Find tasks by meaning ("meetings this week" → standup, sync, review) | Embeddings + cosine similarity |
-| **AI suggestions** | "What should I do next?" (priority, due date, dependencies) | Ranking + optional LLM context |
 | **Natural language task** | "Review report by Friday, high priority" → structured task | LLM parse; fallback keyword |
 | **Smart tagging** | Suggest tags from similar past tasks | Semantic similarity + tag frequency |
 | **Task summarization** | Short overview of long descriptions | LLM or extractive |
@@ -19,7 +18,7 @@
 | **Context reminders** | Remind at optimal time (patterns, dependencies) | Activity + dependency check |
 | **Dependency suggestions** | Suggest "depends on X" from patterns | Semantic + NL hints |
 
-**MVP order:** 1) Semantic search, 2) Task suggestions, 3) Natural language creation.
+**MVP order:** 1) Semantic search, 2) Natural language creation.
 
 | **Server / cold start** | User mutates (e.g. change status) while backend is down or waking | Show server-wake banner + auto-retry; do not show generic “Failed to update”; no optimistic success (UI stays correct until server responds). |
 
@@ -30,10 +29,10 @@
 ## IA design (State → Intent → Action)
 
 **State:** Cached task embeddings, user context.  
-**Intent:** Keyword search, semantic search, AI suggestion, filter.  
+**Intent:** Keyword search, semantic search, filter.  
 **Action:** Load/compute embeddings (lazy), classify intent, retrieve with threshold.
 
-**New backend:** `TaskMemoryService`, `TaskIntent` enum; endpoints: `GET /api/tasks/search?query=&intent=`, `GET /api/tasks/ai-suggestions`, dev-only `embedding-check`.
+**New backend:** `TaskMemoryService`, `TaskIntent` enum; endpoints: `GET /api/tasks/search?query=&intent=`, dev-only `embedding-check`.
 
 **Lazy:** Embeddings only when semantic search requested; LRU cache; no precompute on startup.
 
