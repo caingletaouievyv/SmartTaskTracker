@@ -13,6 +13,7 @@ import { analyticsService } from '../services/analyticsService'
 import { reminderService } from '../services/reminderService'
 import { taskService } from '../services/taskService'
 import { settingsService } from '../services/settingsService'
+import { isServerWakingError } from '../services/api'
 
 // Bulk Actions Bar Component
 function BulkActionsBar({ selectedCount, selectedTasks, tasks, onBulkDelete, onBulkStatusChange, onBulkArchive, onBulkUnarchive, onClear }) {
@@ -607,6 +608,10 @@ function Tasks() {
       })
     } catch (err) {
       console.error('Failed to update status:', err)
+      if (isServerWakingError(err)) {
+        // Server down/cold: banner shows; no generic error so user sees server-wake flow
+        return
+      }
       const errorMsg = err.response?.data?.message || 'Failed to update status'
       await alert(errorMsg, 'Error')
     }
@@ -1250,10 +1255,10 @@ function Tasks() {
         })
       })
     } catch (err) {
-      // Clear flag on error
       isBulkOperationRef.current = false
       localStorage.removeItem('taskTrackerBulkOperation')
       console.error('Failed to update status:', err)
+      if (isServerWakingError(err)) return
       const errorMsg = err.response?.data?.message || 'Failed to update status'
       await alert(errorMsg, 'Error')
     }

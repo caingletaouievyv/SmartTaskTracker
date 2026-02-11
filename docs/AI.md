@@ -21,6 +21,10 @@
 
 **MVP order:** 1) Semantic search, 2) Task suggestions, 3) Natural language creation.
 
+| **Server / cold start** | User mutates (e.g. change status) while backend is down or waking | Show server-wake banner + auto-retry; do not show generic “Failed to update”; no optimistic success (UI stays correct until server responds). |
+
+**Best practice (server-down UX):** One place defines “server down” (`isServerWakingError` in api); all mutation errors (status, reorder, etc.) that match it use the banner and skip generic alerts; no optimistic success so the UI never shows a false “saved” state.
+
 ---
 
 ## IA design (State → Intent → Action)

@@ -8,7 +8,8 @@ const api = axios.create({
   timeout: 60000
 })
 
-const isServerWakingError = (err) => {
+/** True when the failure is due to server down/cold (network, timeout, 502/503). Use to show server-wake UX instead of generic error. */
+export const isServerWakingError = (err) => {
   if (!err) return false
   const code = err.code
   const status = err.response?.status

@@ -106,7 +106,6 @@ app.MapControllers();
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    // Prefer migrations when available; fall back to EnsureCreated for seed-only dev mode.
     if (db.Database.GetMigrations().Any())
     {
         db.Database.Migrate();
@@ -115,7 +114,9 @@ using (var scope = app.Services.CreateScope())
     {
         db.Database.EnsureCreated();
     }
-    var seedDb = app.Environment.IsDevelopment() || string.Equals(Environment.GetEnvironmentVariable("SEED_DATABASE"), "true", StringComparison.OrdinalIgnoreCase);
+    var seedFromConfig = app.Configuration.GetValue<bool?>("SeedDatabase");
+    var seedFromEnv = string.Equals(Environment.GetEnvironmentVariable("SEED_DATABASE"), "true", StringComparison.OrdinalIgnoreCase);
+    var seedDb = seedFromConfig ?? (app.Environment.IsDevelopment() || seedFromEnv);
     if (seedDb)
     {
         DbSeeder.ClearSeedData(db);
