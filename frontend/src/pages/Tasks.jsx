@@ -1854,7 +1854,7 @@ function Tasks() {
               ref={searchInputRef}
               type="text"
               className="form-control"
-              placeholder="Search tasks..."
+              placeholder="Search by meaning or keyword..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
