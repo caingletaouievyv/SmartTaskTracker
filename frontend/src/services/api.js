@@ -4,8 +4,27 @@ const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000/api',
   headers: {
     'Content-Type': 'application/json'
-  }
+  },
+  timeout: 60000
 })
+
+const isServerWakingError = (err) => {
+  if (!err) return false
+  const code = err.code
+  const status = err.response?.status
+  return code === 'ERR_NETWORK' || code === 'ECONNABORTED' || status === 502 || status === 503
+}
+
+/** Call before login/register so user never sees "invalid credentials" when server is cold. Returns true if server is up. */
+export async function checkServerUp() {
+  try {
+    await api.get('health', { timeout: 15000 })
+    return true
+  } catch (err) {
+    if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('server-waking'))
+    return false
+  }
+}
 
 // Request interceptor
 api.interceptors.request.use(
@@ -35,8 +54,14 @@ const processQueue = (error, token = null) => {
 }
 
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('server-up'))
+    return response
+  },
   async (error) => {
+    if (typeof window !== 'undefined' && isServerWakingError(error)) {
+      window.dispatchEvent(new CustomEvent('server-waking'))
+    }
     const originalRequest = error.config
     const isAuthEndpoint = originalRequest.url?.includes('/auth/login') || 
                           originalRequest.url?.includes('/auth/register') ||

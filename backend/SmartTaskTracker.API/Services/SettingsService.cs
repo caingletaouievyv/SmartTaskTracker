@@ -26,7 +26,8 @@ public class SettingsService
 
         if (settings == null)
         {
-            // Create default settings
+            if (!await _context.Users.AnyAsync(u => u.Id == userId))
+                throw new UnauthorizedAccessException("User not found.");
             settings = new UserSettings
             {
                 UserId = userId,
@@ -47,6 +48,8 @@ public class SettingsService
 
         if (settings == null)
         {
+            if (!await _context.Users.AnyAsync(u => u.Id == userId))
+                throw new UnauthorizedAccessException("User not found.");
             settings = new UserSettings { UserId = userId };
             _context.UserSettings.Add(settings);
         }

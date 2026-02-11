@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { settingsService } from '../services/settingsService'
 import { defaultSettings } from '../pages/Settings'
 
@@ -11,27 +11,36 @@ const FONT_SIZES = {
 export function useSettings() {
   const [settings, setSettings] = useState(defaultSettings)
   const [loading, setLoading] = useState(true)
+  const fetchRef = useRef(null)
+
+  const fetchSettings = async () => {
+    try {
+      setLoading(true)
+      const data = await settingsService.get()
+      setSettings({
+        ...defaultSettings,
+        ...data,
+        exportFields: { ...defaultSettings.exportFields, ...(data.exportFields || {}) },
+        uiFields: { ...defaultSettings.uiFields, ...(data.uiFields || {}) },
+        searchFields: { ...defaultSettings.searchFields, ...(data.searchFields || {}) },
+        keyboardShortcuts: { ...defaultSettings.keyboardShortcuts, ...(data.keyboardShortcuts || {}) }
+      })
+    } catch (err) {
+      console.error('Failed to load settings:', err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  fetchRef.current = fetchSettings
+  useEffect(() => {
+    fetchSettings()
+  }, [])
 
   useEffect(() => {
-    const fetchSettings = async () => {
-      try {
-        const data = await settingsService.get()
-        setSettings({
-          ...defaultSettings,
-          ...data,
-          exportFields: { ...defaultSettings.exportFields, ...(data.exportFields || {}) },
-          uiFields: { ...defaultSettings.uiFields, ...(data.uiFields || {}) },
-          searchFields: { ...defaultSettings.searchFields, ...(data.searchFields || {}) },
-          keyboardShortcuts: { ...defaultSettings.keyboardShortcuts, ...(data.keyboardShortcuts || {}) }
-        })
-      } catch (err) {
-        console.error('Failed to load settings:', err)
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    fetchSettings()
+    const onServerBack = () => fetchRef.current?.()
+    window.addEventListener('server-back', onServerBack)
+    return () => window.removeEventListener('server-back', onServerBack)
   }, [])
 
   // Apply font size to document

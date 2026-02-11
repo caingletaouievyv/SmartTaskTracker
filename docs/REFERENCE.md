@@ -17,9 +17,13 @@
 
 Never commit `appsettings.Development.json` (in .gitignore).
 
+**Error handling:** `ErrorHandlingMiddleware` maps `UnauthorizedAccessException`, `SecurityTokenExpiredException`, `SecurityTokenException` → 401. `SettingsService` checks user exists before creating `UserSettings` (avoids FK; throws if user missing → 401).
+
 ---
 
 ## Database schema (short)
+
+**API (not in schema):** `GET /api/health` — no auth; used for cold-start check (Render free tier). Returns `{ "status": "ok" }`.
 
 **Tables:** Users, Tasks, TaskTemplates, TaskHistory, TaskDependencies, Tags, TaskTags, UserSettings.
 
@@ -52,3 +56,10 @@ Full table/column list: see repo history (was `DATABASE_SCHEMA.md`).
 **Frontend (Netlify):** Base dir = `frontend`, publish = `dist`. **Env:** `VITE_API_URL` = Render API URL (e.g. `https://xxx.onrender.com/api`).
 
 **CORS:** Backend allows only `FRONTEND_URL` + localhost. Set `FRONTEND_URL` in Render and redeploy. Full steps: [DEPLOYMENT.md](DEPLOYMENT.md).
+
+---
+
+## AI features (current)
+
+**State:** Semantic search + natural language task implemented. "What's next?" = DB ranking only (not AI).  
+**NL task:** `POST /api/tasks/from-natural-language` body `{ "text": "..." }` → `CreateTaskDto`. LLM key: env `OPENAI_API_KEY`, `AI_KEY`, or config `TaskMemory:LlmApiKey`. Optional `MODEL_PROVIDER=deepseek` + `AI_KEY` → DeepSeek (api.deepseek.com); else OpenAI. No key = keyword fallback. See [AI.md](AI.md).

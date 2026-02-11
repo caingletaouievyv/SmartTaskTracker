@@ -191,6 +191,7 @@ CORS allows only origins from `FRONTEND_URL` (and localhost). Wrong or missing `
 - **This is normal** on Render free tier
 - Service sleeps after 15 min inactivity
 - First request wakes it up (takes time)
+- **App behavior:** Banner "Server is waking up" + auto-retry every 10s; login/register check health first so no "invalid credentials"
 - **Solution:** Accept it for free tier, or upgrade to paid ($7/month)
 
 ### Frontend Issues

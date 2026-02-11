@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { taskService } from '../services/taskService'
 
 export function useTasks(search = '', status = '', sortBy = '', includeArchived = false, dueDate = null, priority = null, tags = null) {
   const [tasks, setTasks] = useState([])
   const [loading, setLoading] = useState(true)
+  const fetchRef = useRef(null)
 
   const fetchTasks = async () => {
     try {
@@ -23,9 +24,16 @@ export function useTasks(search = '', status = '', sortBy = '', includeArchived 
     }
   }
 
+  fetchRef.current = fetchTasks
   useEffect(() => {
     fetchTasks()
   }, [search, status, sortBy, includeArchived, dueDate, priority, tags])
+
+  useEffect(() => {
+    const onServerBack = () => fetchRef.current?.()
+    window.addEventListener('server-back', onServerBack)
+    return () => window.removeEventListener('server-back', onServerBack)
+  }, [])
 
   const createTask = async (taskData) => {
     try {

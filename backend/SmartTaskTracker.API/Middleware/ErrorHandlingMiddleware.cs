@@ -1,5 +1,6 @@
 using System.Net;
 using System.Text.Json;
+using Microsoft.IdentityModel.Tokens;
 using SmartTaskTracker.API.DTOs;
 
 namespace SmartTaskTracker.API.Middleware;
@@ -33,10 +34,12 @@ public class ErrorHandlingMiddleware
         var statusCode = HttpStatusCode.InternalServerError;
         var message = "An error occurred while processing your request.";
 
-        if (exception is UnauthorizedAccessException)
+        if (exception is UnauthorizedAccessException ||
+            exception is SecurityTokenExpiredException ||
+            exception is SecurityTokenException)
         {
             statusCode = HttpStatusCode.Unauthorized;
-            message = "Unauthorized access.";
+            message = "Unauthorized or token expired.";
         }
 
         context.Response.ContentType = "application/json";

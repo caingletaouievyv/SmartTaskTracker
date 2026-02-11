@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { authService } from '../services/authService'
+import { checkServerUp } from '../services/api'
 
 function Register() {
   const [username, setUsername] = useState('')
@@ -9,8 +10,31 @@ function Register() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const pendingRef = useRef(null)
   const { login } = useAuth()
   const navigate = useNavigate()
+
+  useEffect(() => {
+    const onServerBack = async () => {
+      if (!pendingRef.current) return
+      const { username: u, email: em, password: p } = pendingRef.current
+      pendingRef.current = null
+      setError('')
+      setLoading(true)
+      try {
+        const data = await authService.register(u, em, p)
+        login(data.token, data.refreshToken, data.userId, data.username)
+        navigate('/tasks')
+      } catch (err) {
+        const errorMsg = err.response?.data?.message || err.response?.data?.title || err.response?.data || 'Registration failed.'
+        setError(errorMsg)
+      } finally {
+        setLoading(false)
+      }
+    }
+    window.addEventListener('server-back', onServerBack)
+    return () => window.removeEventListener('server-back', onServerBack)
+  }, [login, navigate])
 
   const validateForm = () => {
     if (!username.trim() || !email.trim() || !password.trim()) {
@@ -40,6 +64,11 @@ function Register() {
 
     setLoading(true)
     try {
+      if (!(await checkServerUp())) {
+        pendingRef.current = { username, email, password }
+        setLoading(false)
+        return
+      }
       const data = await authService.register(username, email, password)
       login(data.token, data.refreshToken, data.userId, data.username)
       navigate('/tasks')

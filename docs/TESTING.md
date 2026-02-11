@@ -684,6 +684,41 @@ Semantic = embedding similarity on **title + description + priority label + tag 
 
 ---
 
+### Test 47: Natural language task (“Add from text”)
+
+**State:** Tasks page, user wants to create a task from free text.  
+**Intent:** Get structured task (title, due date, priority) from natural language.  
+**Action:** Type in “Add from text” input → click “Add from text” → edit in modal → Create.
+
+1. Find the **“Add from text”** input (placeholder: “e.g. Review report by Friday, high priority”).
+2. Enter: `Review report by Friday, high priority`.
+3. Click **Add from text** (or press Enter).
+4. ✅ Create-task modal opens with **Title** “Review report” (or similar), **Due date** set to next Friday, **Priority** High (or pre-filled from parse).
+5. Adjust if needed, click **Create Task** → ✅ Task appears in list.
+
+**Validation:**
+- Empty input → “Add from text” button disabled.
+- With LLM key: parsing uses API; without: keyword fallback (e.g. “high priority”, “by Friday”, “tomorrow”).
+- Modal shows parsed fields; user can edit before creating.
+
+#### Quick test list (Add from text → check modal, then Create)
+
+| # | Input (text) | Expected title | Expected due | Expected priority | Expected description |
+|---|--------------|----------------|--------------|-------------------|----------------------|
+| 1 | `Review report by Friday, high priority` | Review report | Next Friday 00:00 | High (2) | — |
+| 2 | `REVIEW REPORT BY FRIDAY high priority` | Review report | Next Friday 00:00 | High (2) | — |
+| 3 | `tomorrow morning jog high prio` | Jog | Tomorrow 08:00 | High (2) | Morning |
+| 4 | `review report by friday at 3pm` | Review report | Next Friday 15:00 | Medium (1) | — |
+| 5 | `Call mom tomorrow` | Call mom | Tomorrow 00:00 | Medium (1) | — |
+| 6 | `low prio admin task next week` | Admin task | Next Monday 00:00 | Low (0) | — |
+| 7 | `urgent fix bug tomorrow` | Fix bug | Tomorrow 00:00 | High (2) | — |
+| 8 | `meeting at 10am` | Meeting | — (no date phrase) | Medium (1) | — |
+| 9 | `(empty)` | — | Button disabled | — | — |
+
+**Notes:** Times in UTC. “Next Friday” = next occurrence of that weekday. With `OPENAI_API_KEY` set, LLM may return slightly different wording; fallback (no key) uses keyword rules above.
+
+---
+
 ## Expected Behaviors
 
 ✅ **Loading States:**
@@ -694,7 +729,12 @@ Semantic = embedding similarity on **title + description + priority label + tag 
 ✅ **Error Handling:**
 - Validation errors show inline
 - API errors show user-friendly messages
-- 401 errors auto-redirect to login
+- 401 errors auto-redirect to login (token expired, user not in DB, etc.)
+
+✅ **Server wake (Render free tier / backend down):**
+- Login/register: health check first → if server down, banner shows; no "invalid credentials"
+- Banner: "Server is waking up. Retrying automatically every 10s." Dismiss or wait
+- When server is back: banner hides; login/register/tasks/settings auto-retry
 
 ✅ **Validation:**
 - Client-side: Immediate feedback

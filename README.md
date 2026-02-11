@@ -55,9 +55,10 @@ SmartTaskTracker/
 ### Frontend (`frontend/`)
 ```
 frontend/
-  index.html              HTML entry
+  index.html              HTML entry (favicon.svg)
+  public/                 Static assets (favicon.svg); /favicon.ico → favicon.svg in dev
   package.json            Deps + scripts (dev, build, test)
-  vite.config.js          Vite build config
+  vite.config.js          Vite build config (+ favicon.ico rewrite)
   tailwind.config.js      TailwindCSS config
   postcss.config.js       PostCSS config
   src/
@@ -68,6 +69,7 @@ frontend/
       Navbar.jsx          Top nav + logout
       TaskCard.jsx        Single task display
       TaskModal.jsx       Create/edit task form
+      ServerWakeBanner.jsx  Server cold-start banner + auto-retry (Render free tier)
       Dialog.jsx          Alerts, confirmations, prompts
       Dialog.css
       TaskHistory.jsx     Task audit log
@@ -88,9 +90,9 @@ frontend/
       useNotifications.js Browser notifications (overdue/upcoming)
       useKeyboardShortcuts.js  Shortcuts (e.g. n=new, s=search)
     services/              API clients (Axios)
-      api.js              Axios instance + auth interceptors
+      api.js              Axios instance + auth interceptors; checkServerUp(), server-waking/server-up/server-back
       authService.js      Register, login, refresh
-      taskService.js      Task CRUD, search (keyword/semantic), ai-suggestions
+      taskService.js      Task CRUD, search (keyword/semantic), ai-suggestions, parseNaturalLanguage
       taskTemplateService.js  Template CRUD
       tagService.js       Tag CRUD
       settingsService.js  User settings API
@@ -113,7 +115,8 @@ backend/SmartTaskTracker.API/
   SmartTaskTracker.API.csproj
   Controllers/             REST endpoints
     AuthController.cs      Register, login, refresh
-    TasksController.cs     Task CRUD, bulk, archive, subtasks, dependencies, import, search, ai-suggestions
+    HealthController.cs    GET /api/health (no auth; cold-start check)
+    TasksController.cs     Task CRUD, bulk, archive, subtasks, dependencies, import, search, ai-suggestions, from-natural-language
     TaskTemplatesController.cs  Template CRUD
     TagsController.cs      Tag CRUD
     SettingsController.cs  User settings
@@ -122,7 +125,7 @@ backend/SmartTaskTracker.API/
     TaskService.cs         Task logic
     TaskTemplateService.cs Template logic
     TagService.cs          Tag + color
-    SettingsService.cs     User settings
+    SettingsService.cs     User settings; ensures user exists before creating UserSettings (avoids FK + 401 when stale token)
     TaskMemoryService.cs    Semantic search only (lazy embeddings)
   Models/                   Domain entities
     User.cs                User + refresh token
@@ -152,7 +155,7 @@ backend/SmartTaskTracker.API/
     TaskIntent.cs           Keyword, Semantic
     LRUCache.cs             LRU cache for embeddings
   Middleware/
-    ErrorHandlingMiddleware.cs  Global error handling
+    ErrorHandlingMiddleware.cs  Global error handling; auth exceptions (token expired, user not found) → 401
   Properties/
     launchSettings.json     Launch config
 ```
@@ -170,7 +173,7 @@ backend/SmartTaskTracker.API.Tests/
 
 ## Features (short)
 
-Tasks: CRUD, priorities, tags, status, due dates, recurring, templates, subtasks, dependencies, time tracking, calendar, CSV import/export, search/filter/sort, bulk ops, keyboard shortcuts, dark mode, settings, browser notifications.
+Tasks: CRUD, priorities, tags, status, due dates, recurring, templates, subtasks, dependencies, time tracking, calendar, CSV import/export, search/filter/sort, bulk ops, keyboard shortcuts, dark mode, settings, browser notifications. **Render free tier:** First request may wake server (30–60s); app shows banner and auto-retries. 401 → clear session, redirect to login.
 
 ---
 

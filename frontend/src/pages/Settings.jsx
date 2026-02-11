@@ -65,26 +65,33 @@ function Settings() {
   const [presetStatus, setPresetStatus] = useState('')
   const [presetSortBy, setPresetSortBy] = useState('')
 
-  useEffect(() => {
-    const loadSettings = async () => {
-      try {
-        const data = await settingsService.get()
-        setSettings({
-          ...defaultSettings,
-          ...data,
-          exportFields: { ...defaultSettings.exportFields, ...(data.exportFields || {}) },
-          uiFields: { ...defaultSettings.uiFields, ...(data.uiFields || {}) },
-          searchFields: { ...defaultSettings.searchFields, ...(data.searchFields || {}) },
-          keyboardShortcuts: { ...defaultSettings.keyboardShortcuts, ...(data.keyboardShortcuts || {}) }
-        })
-        if (data.filterPresets) {
-          setFilterPresets(data.filterPresets)
-        }
-      } catch (err) {
-        console.error('Failed to load settings from API:', err)
+  const loadSettings = async () => {
+    try {
+      const data = await settingsService.get()
+      setSettings({
+        ...defaultSettings,
+        ...data,
+        exportFields: { ...defaultSettings.exportFields, ...(data.exportFields || {}) },
+        uiFields: { ...defaultSettings.uiFields, ...(data.uiFields || {}) },
+        searchFields: { ...defaultSettings.searchFields, ...(data.searchFields || {}) },
+        keyboardShortcuts: { ...defaultSettings.keyboardShortcuts, ...(data.keyboardShortcuts || {}) }
+      })
+      if (data.filterPresets) {
+        setFilterPresets(data.filterPresets)
       }
+    } catch (err) {
+      console.error('Failed to load settings from API:', err)
     }
+  }
+
+  useEffect(() => {
     loadSettings()
+  }, [])
+
+  useEffect(() => {
+    const onServerBack = () => loadSettings()
+    window.addEventListener('server-back', onServerBack)
+    return () => window.removeEventListener('server-back', onServerBack)
   }, [])
 
   const handleSave = async () => {

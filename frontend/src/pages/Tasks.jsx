@@ -241,9 +241,6 @@ function Tasks() {
 
   // When showArchived is true, we want ONLY archived tasks (not mixed)
   const includeArchived = showArchived
-  const [suggestions, setSuggestions] = useState([])
-  const [showSuggestions, setShowSuggestions] = useState(false)
-  const [suggestionsLoading, setSuggestionsLoading] = useState(false)
   const { tasks: fetchedTasks, loading, createTask, updateTask, deleteTask, bulkDeleteTasks, bulkCompleteTasks, archiveTask, unarchiveTask, createSubtask, refreshTasks } = useTasks(search, status, effectiveSortBy, includeArchived, dueDate, priority, tags)
   
   // Filter: show ONLY archived when button active, ONLY active when button inactive
@@ -309,6 +306,16 @@ function Tasks() {
     const timeoutId = setTimeout(fetchReminders, 1500)
     return () => clearTimeout(timeoutId)
   }, [tasks, settingsLoading, settings.reminderHoursAhead])
+
+  useEffect(() => {
+    const onServerBack = () => {
+      fetchTemplates()
+      fetchReminders()
+      fetchAnalytics()
+    }
+    window.addEventListener('server-back', onServerBack)
+    return () => window.removeEventListener('server-back', onServerBack)
+  }, [])
 
   // Refresh analytics when tasks change (only if already loaded)
   useEffect(() => {
@@ -1903,25 +1910,6 @@ function Tasks() {
                 )}
               </>
             )}
-            <button
-              className="btn btn-outline-secondary"
-              style={{ height: '38px' }}
-              onClick={async () => {
-                setSuggestionsLoading(true)
-                setShowSuggestions(true)
-                try {
-                  const data = await taskService.getAiSuggestions()
-                  setSuggestions(Array.isArray(data) ? data : [])
-                } catch (err) {
-                  setSuggestions([])
-                } finally {
-                  setSuggestionsLoading(false)
-                }
-              }}
-              title="Suggested next (priority, due date)"
-            >
-              What&apos;s next?
-            </button>
             <button 
               className="btn btn-primary" 
               style={{ height: '38px', minWidth: '120px' }}
@@ -1933,41 +1921,6 @@ function Tasks() {
             </div>
           </div>
         </div>
-
-        {showSuggestions && (
-          <div className="modal show d-block" role="dialog" aria-modal="true" aria-labelledby="suggestions-modal-title" tabIndex={-1} style={{ backgroundColor: 'rgba(0,0,0,0.5)' }} onClick={() => setShowSuggestions(false)}>
-            <div className="modal-dialog modal-dialog-centered" onClick={(e) => e.stopPropagation()}>
-              <div className="modal-content suggestions-panel">
-                <div className="modal-header">
-                  <h5 id="suggestions-modal-title" className="modal-title">Suggested next</h5>
-                  <button type="button" className="btn-close" onClick={() => setShowSuggestions(false)} aria-label="Close suggestions" />
-                </div>
-                <div className="modal-body">
-                  {suggestionsLoading ? (
-                    <p className="mb-0 text-muted small">Loading…</p>
-                  ) : suggestions.length === 0 ? (
-                    <p className="mb-0 text-muted small">No suggestions.</p>
-                  ) : (
-                    <ul className="list-unstyled mb-0">
-                      {suggestions.map((s) => (
-                        <li key={s.task?.id} className="border-bottom border-secondary border-opacity-25 last:border-b-0">
-                          <button
-                            type="button"
-                            className="btn btn-link text-start p-2 w-100 text-decoration-none d-flex flex-column align-items-start gap-1"
-                            onClick={() => { setShowSuggestions(false); scrollToTaskThenEdit(s.task) }}
-                          >
-                            <span>{s.task?.title}</span>
-                            {s.reason ? <span className="small text-muted">{s.reason}</span> : null}
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
 
         {selectedTasks.size > 0 && (
           <BulkActionsBar
@@ -2040,6 +1993,7 @@ function Tasks() {
       </div>
 
       <TaskModal
+        key={editingTask?.id ?? (editingTask ? 'parsed' : 'create')}
         show={showModal}
         onClose={() => {
           setShowModal(false)
