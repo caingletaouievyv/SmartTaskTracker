@@ -342,7 +342,7 @@ function SubtaskList({ subtasks, onDeleteSubtask, parentTaskId, onReorderSubtask
   )
 }
 
-function TaskModal({ show, onClose, onSubmit, task, isEditing, submitting = false, onSaveAsTemplate, allTasks = [], onCreateSubtask, onDeleteSubtask, onEditSubtask, onReorderSubtasks, onToggleCompleteSubtask }) {
+function TaskModal({ show, onClose, onSubmit, task, isEditing, openedFromNaturalLanguage = false, submitting = false, onSaveAsTemplate, allTasks = [], onCreateSubtask, onDeleteSubtask, onEditSubtask, onReorderSubtasks, onToggleCompleteSubtask }) {
   const { settings } = useSettings()
   const { dialog, alert, confirm } = useDialog()
   const [pendingSubtasks, setPendingSubtasks] = useState([])
@@ -592,8 +592,11 @@ function TaskModal({ show, onClose, onSubmit, task, isEditing, submitting = fals
                   ←
                 </button>
               )}
-              <h5 className="modal-title mb-0">
+              <h5 className="modal-title mb-0 d-flex align-items-center gap-2 flex-wrap">
                 {isEditing ? (task?.parentTaskId ? 'Edit Subtask' : 'Edit Task') : 'Create Task'}
+                {!isEditing && openedFromNaturalLanguage && (
+                  <span className="badge bg-info text-dark" style={{ fontSize: '0.7rem', fontWeight: 'normal' }} title="We prefilled the form from your text">From your text</span>
+                )}
               </h5>
             </div>
             <button type="button" className="btn-close" onClick={onClose}></button>

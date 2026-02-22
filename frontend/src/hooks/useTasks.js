@@ -36,77 +36,45 @@ export function useTasks(search = '', status = '', sortBy = '', includeArchived 
   }, [])
 
   const createTask = async (taskData) => {
-    try {
-      const createdTask = await taskService.create(taskData)
-      await fetchTasks()
-      return createdTask
-    } catch (error) {
-      throw error
-    }
+    const createdTask = await taskService.create(taskData)
+    await fetchTasks()
+    return createdTask
   }
 
   const updateTask = async (id, taskData) => {
-    try {
-      await taskService.update(id, taskData)
-      await fetchTasks()
-    } catch (error) {
-      throw error
-    }
+    await taskService.update(id, taskData)
+    await fetchTasks()
   }
 
   const deleteTask = async (id) => {
-    try {
-      await taskService.delete(id)
-      await fetchTasks()
-    } catch (error) {
-      throw error
-    }
+    await taskService.delete(id)
+    await fetchTasks()
   }
 
   const bulkDeleteTasks = async (taskIds) => {
-    try {
-      await taskService.bulkDelete(taskIds)
-      await fetchTasks()
-    } catch (error) {
-      throw error
-    }
+    await taskService.bulkDelete(taskIds)
+    await fetchTasks()
   }
 
   const bulkCompleteTasks = async (taskIds) => {
-    try {
-      await taskService.bulkComplete(taskIds)
-      await fetchTasks()
-    } catch (error) {
-      throw error
-    }
+    await taskService.bulkComplete(taskIds)
+    await fetchTasks()
   }
 
   const archiveTask = async (id) => {
-    try {
-      await taskService.archive(id)
-      await fetchTasks()
-    } catch (error) {
-      throw error
-    }
+    await taskService.archive(id)
+    await fetchTasks()
   }
 
   const unarchiveTask = async (id) => {
-    try {
-      await taskService.unarchive(id)
-      await fetchTasks()
-    } catch (error) {
-      throw error
-    }
+    await taskService.unarchive(id)
+    await fetchTasks()
   }
 
   const createSubtask = async (parentTaskId, subtaskData) => {
-    try {
-      const createdSubtask = await taskService.createSubtask(parentTaskId, subtaskData)
-      await fetchTasks()
-      return createdSubtask
-    } catch (error) {
-      throw error
-    }
+    const createdSubtask = await taskService.createSubtask(parentTaskId, subtaskData)
+    await fetchTasks()
+    return createdSubtask
   }
 
   return { tasks, loading, createTask, updateTask, deleteTask, bulkDeleteTasks, bulkCompleteTasks, archiveTask, unarchiveTask, createSubtask, refreshTasks: fetchTasks }

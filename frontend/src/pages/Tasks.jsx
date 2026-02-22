@@ -148,6 +148,7 @@ function Tasks() {
   const [sortBy, setSortBy] = useState('')
   const [showModal, setShowModal] = useState(false)
   const [editingTask, setEditingTask] = useState(null)
+  const [openedFromNaturalLanguage, setOpenedFromNaturalLanguage] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [templates, setTemplates] = useState([])
   const [showTemplates, setShowTemplates] = useState(false)
@@ -242,6 +243,13 @@ function Tasks() {
 
   // When showArchived is true, we want ONLY archived tasks (not mixed)
   const includeArchived = showArchived
+  const [suggestions, setSuggestions] = useState([])
+  const [showSuggestions, setShowSuggestions] = useState(false)
+  const [suggestionsLoading, setSuggestionsLoading] = useState(false)
+  const [nlInput, setNlInput] = useState('')
+  const [nlLoading, setNlLoading] = useState(false)
+  const [showAddDropdown, setShowAddDropdown] = useState(false)
+  const addDropdownRef = useRef(null)
   const { tasks: fetchedTasks, loading, createTask, updateTask, deleteTask, bulkDeleteTasks, bulkCompleteTasks, archiveTask, unarchiveTask, createSubtask, refreshTasks } = useTasks(search, status, effectiveSortBy, includeArchived, dueDate, priority, tags)
   
   // Filter: show ONLY archived when button active, ONLY active when button inactive
@@ -274,6 +282,7 @@ function Tasks() {
 
   const handleCreate = () => {
     setEditingTask(null)
+    setOpenedFromNaturalLanguage(false)
     setShowModal(true)
   }
 
@@ -317,6 +326,15 @@ function Tasks() {
     window.addEventListener('server-back', onServerBack)
     return () => window.removeEventListener('server-back', onServerBack)
   }, [])
+
+  useEffect(() => {
+    if (!showAddDropdown) return
+    const onMouseDown = (e) => {
+      if (addDropdownRef.current && !addDropdownRef.current.contains(e.target)) setShowAddDropdown(false)
+    }
+    document.addEventListener('mousedown', onMouseDown)
+    return () => document.removeEventListener('mousedown', onMouseDown)
+  }, [showAddDropdown])
 
   // Refresh analytics when tasks change (only if already loaded)
   useEffect(() => {
@@ -365,6 +383,39 @@ function Tasks() {
       setReminders(data)
     } catch (err) {
       console.error('Failed to fetch reminders:', err)
+    }
+  }
+
+  const handleAddFromNaturalLanguage = async () => {
+    const text = nlInput.trim()
+    if (!text) return
+    setNlLoading(true)
+    try {
+      const parsed = await taskService.parseNaturalLanguage(text)
+      // Pass full parsed shape so modal shows dueDate, priority, description, tags (State: parsed; Intent: prefill form; Action: open modal)
+      setEditingTask({
+        title: parsed.title || 'New task',
+        description: parsed.description ?? '',
+        dueDate: parsed.dueDate ?? null,
+        priority: parsed.priority ?? 1,
+        tags: Array.isArray(parsed.tags) ? parsed.tags : [],
+        notes: parsed.notes ?? '',
+        estimatedTimeMinutes: parsed.estimatedTimeMinutes ?? null,
+        recurrenceType: parsed.recurrenceType ?? 0,
+        recurrenceEndDate: parsed.recurrenceEndDate ?? null,
+        status: parsed.status ?? 0,
+        fileUrl: parsed.fileUrl ?? null,
+        fileName: parsed.fileName ?? null,
+        dependsOnTaskIds: parsed.dependsOnTaskIds ?? []
+      })
+      setNlInput('')
+      setShowAddDropdown(false)
+      setOpenedFromNaturalLanguage(true)
+      setShowModal(true)
+    } catch (err) {
+      console.error('Parse NL failed:', err)
+    } finally {
+      setNlLoading(false)
     }
   }
 
@@ -656,6 +707,7 @@ function Tasks() {
         if (isEditUnchanged(editingTask, updatePayload, formData)) {
           setShowModal(false)
           setEditingTask(null)
+          setOpenedFromNaturalLanguage(false)
           setSubmitting(false)
           return
         }
@@ -769,14 +821,17 @@ function Tasks() {
             console.error('Failed to fetch parent task:', err)
             setShowModal(false)
             setEditingTask(null)
+            setOpenedFromNaturalLanguage(false)
           }
         } else {
           setShowModal(false)
           setEditingTask(null)
+          setOpenedFromNaturalLanguage(false)
         }
       } else {
         setShowModal(false)
         setEditingTask(null)
+        setOpenedFromNaturalLanguage(false)
       }
     } catch (err) {
       const errorMsg = err.response?.data?.message || 'Failed to save task'
@@ -1850,14 +1905,20 @@ function Tasks() {
 
         <div className="row g-2 mb-3 align-items-center">
           <div className="col-12 col-md-4">
-            <input
-              ref={searchInputRef}
-              type="text"
-              className="form-control"
-              placeholder="Search by meaning or keyword..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
+            <div className="input-group">
+              <span className="input-group-text bg-transparent" aria-hidden title="Semantic search (meaning + keyword)">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden><path d="M12 0l2.5 7.5L22 10l-7.5 2.5L12 20l-2.5-7.5L2 10l7.5-2.5L12 0z"/></svg>
+              </span>
+              <input
+                ref={searchInputRef}
+                type="text"
+                className="form-control border-start-0"
+                placeholder="Search by meaning or keyword..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                aria-label="Search by meaning or keyword"
+              />
+            </div>
           </div>
           <div className="col-6 col-md-4">
             <select
@@ -1915,17 +1976,110 @@ function Tasks() {
                 )}
               </>
             )}
-            <button 
-              className="btn btn-primary" 
-              style={{ height: '38px', minWidth: '120px' }}
-              onClick={handleCreate}
+            <button
+              className="btn btn-outline-secondary"
+              style={{ height: '38px' }}
+              onClick={async () => {
+                setSuggestionsLoading(true)
+                setShowSuggestions(true)
+                try {
+                  const data = await taskService.getAiSuggestions()
+                  setSuggestions(Array.isArray(data) ? data : [])
+                } catch (err) {
+                  setSuggestions([])
+                } finally {
+                  setSuggestionsLoading(false)
+                }
+              }}
+              title="Suggested next (priority, due date)"
             >
-              <span className="d-none d-sm-inline">+ Add Task</span>
-              <span className="d-sm-none">+ Add</span>
+              What&apos;s next?
             </button>
+            <div className="dropdown" ref={addDropdownRef}>
+              <div className="btn-group">
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  style={{ height: '38px', minWidth: '100px' }}
+                  onClick={handleCreate}
+                >
+                  <span className="d-none d-sm-inline">+ Add Task</span>
+                  <span className="d-sm-none">+ Add</span>
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-primary add-task-ai-toggle"
+                  style={{ height: '38px', minWidth: '36px' }}
+                  onClick={() => setShowAddDropdown(!showAddDropdown)}
+                  aria-expanded={showAddDropdown}
+                  aria-haspopup="true"
+                  aria-label="Add from text (AI)"
+                  title="Add from text (AI fills the details)"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden><path d="M12 0l2.5 7.5L22 10l-7.5 2.5L12 20l-2.5-7.5L2 10l7.5-2.5L12 0z"/></svg>
+                </button>
+              </div>
+              <div className={`dropdown-menu dropdown-menu-end p-2 ${showAddDropdown ? 'show' : ''}`} style={{ minWidth: '280px' }}>
+                <input
+                  type="text"
+                  className="form-control form-control-sm mb-2"
+                  placeholder="e.g. Review report tomorrow afternoon, high priority"
+                  value={nlInput}
+                  onChange={(e) => setNlInput(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleAddFromNaturalLanguage()}
+                  disabled={nlLoading}
+                  aria-label="Describe your task in plain language"
+                  aria-busy={nlLoading}
+                  autoFocus
+                />
+                <button
+                  type="button"
+                  className="btn btn-primary btn-sm w-100"
+                  onClick={handleAddFromNaturalLanguage}
+                  disabled={nlLoading || !nlInput.trim()}
+                >
+                  {nlLoading ? 'Parsing…' : 'Add from text'}
+                </button>
+              </div>
+            </div>
             </div>
           </div>
         </div>
+
+        {showSuggestions && (
+          <div className="modal show d-block" role="dialog" aria-modal="true" aria-labelledby="suggestions-modal-title" tabIndex={-1} style={{ backgroundColor: 'rgba(0,0,0,0.5)' }} onClick={() => setShowSuggestions(false)}>
+            <div className="modal-dialog modal-dialog-centered" onClick={(e) => e.stopPropagation()}>
+              <div className="modal-content suggestions-panel">
+                <div className="modal-header">
+                  <h5 id="suggestions-modal-title" className="modal-title">Suggested next</h5>
+                  <button type="button" className="btn-close" onClick={() => setShowSuggestions(false)} aria-label="Close suggestions" />
+                </div>
+                <div className="modal-body">
+                  {suggestionsLoading ? (
+                    <p className="mb-0 text-muted small">Loading…</p>
+                  ) : suggestions.length === 0 ? (
+                    <p className="mb-0 text-muted small">No suggestions.</p>
+                  ) : (
+                    <ul className="list-unstyled mb-0">
+                      {suggestions.map((s) => (
+                        <li key={s.task?.id} className="border-bottom border-secondary border-opacity-25 last:border-b-0">
+                          <button
+                            type="button"
+                            className="btn btn-link text-start p-2 w-100 text-decoration-none d-flex flex-column align-items-start gap-1"
+                            onClick={() => { setShowSuggestions(false); scrollToTaskThenEdit(s.task) }}
+                          >
+                            <span>{s.task?.title}</span>
+                            {s.reason ? <span className="small text-muted">{s.reason}</span> : null}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {selectedTasks.size > 0 && (
           <BulkActionsBar
@@ -2003,11 +2157,13 @@ function Tasks() {
         onClose={() => {
           setShowModal(false)
           setEditingTask(null)
+          setOpenedFromNaturalLanguage(false)
         }}
         allTasks={allTasks.filter(t => !t.parentTaskId)}
         onSubmit={handleSubmit}
         task={editingTask}
         isEditing={!!editingTask?.id}
+        openedFromNaturalLanguage={openedFromNaturalLanguage}
         submitting={submitting}
         onSaveAsTemplate={handleSaveAsTemplate}
         onCreateSubtask={handleCreateSubtask}

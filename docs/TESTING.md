@@ -690,8 +690,8 @@ Semantic = embedding similarity on **title + description + priority label + tag 
 **Intent:** Get structured task (title, due date, priority) from natural language.  
 **Action:** Type in “Add from text” input → click “Add from text” → edit in modal → Create.
 
-1. Find the **“Add from text”** input (placeholder: “e.g. Review report by Friday, high priority”).
-2. Enter: `Review report by Friday, high priority`.
+1. On the **+ Add Task** button group, click the **sparkle** (✦) split to open the dropdown.
+2. In the dropdown, enter in the text input: `Review report by Friday, high priority`.
 3. Click **Add from text** (or press Enter).
 4. ✅ Create-task modal opens with **Title** “Review report” (or similar), **Due date** set to next Friday, **Priority** High (or pre-filled from parse).
 5. Adjust if needed, click **Create Task** → ✅ Task appears in list.

@@ -16,4 +16,13 @@ public class TaskMemoryOptions
     public int MaxTextLength { get; set; } = 1000;
     public int EmbeddingTimeoutSeconds { get; set; } = 30;
     public int MaxConcurrentEmbeddings { get; set; } = 3;
+
+    /// <summary>Natural language task: provider (openai | deepseek). Override with env MODEL_PROVIDER.</summary>
+    public string LlmProvider { get; set; } = "openai";
+    /// <summary>LLM model (e.g. gpt-4o-mini, deepseek-chat). Default per provider if not set.</summary>
+    public string? LlmModel { get; set; }
+    /// <summary>Override base URL (e.g. for OpenRouter). When set, LlmProvider is ignored.</summary>
+    public string? LlmBaseUrl { get; set; }
+    public string? LlmApiKey { get; set; }
+    public int LlmTimeoutSeconds { get; set; } = 15;
 }

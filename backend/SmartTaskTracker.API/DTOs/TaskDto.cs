@@ -98,6 +98,13 @@ public class AddDependencyDto
     public int DependsOnTaskId { get; set; }
 }
 
+public class ParseNaturalLanguageRequest
+{
+    [Required(ErrorMessage = "Text is required")]
+    [MaxLength(2000)]
+    public string Text { get; set; } = string.Empty;
+}
+
 public class ReorderTasksDto
 {
     [Required(ErrorMessage = "Task IDs are required")]

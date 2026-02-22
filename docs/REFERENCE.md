@@ -4,6 +4,8 @@
 **Intent:** Look up when needed.  
 **Action:** Use sections below.
 
+**Framework:** Lazy, simple, concise. Code and docs (AI.md, REFERENCE, TESTING) stay in sync; State → Intent → Action where applicable.
+
 ---
 
 ## Backend setup
@@ -62,4 +64,4 @@ Full table/column list: see repo history (was `DATABASE_SCHEMA.md`).
 ## AI features (current)
 
 **State:** Semantic search + natural language task implemented. "What's next?" = DB ranking only (not AI).  
-**NL task:** `POST /api/tasks/from-natural-language` body `{ "text": "..." }` → `CreateTaskDto`. LLM key: env `OPENAI_API_KEY`, `AI_KEY`, or config `TaskMemory:LlmApiKey`. Optional `MODEL_PROVIDER=deepseek` + `AI_KEY` → DeepSeek (api.deepseek.com); else OpenAI. No key = keyword fallback. See [AI.md](AI.md).
+**NL task:** `POST /api/tasks/from-natural-language` body `{ "text": "..." }` → `CreateTaskDto`. UI: **+ Add Task** button group — main opens blank modal; sparkle split opens dropdown with text input + "Add from text". LLM key: env or `TaskMemory:LlmApiKey`; no key = keyword fallback; LLM + fallback merged. See [AI.md](AI.md).

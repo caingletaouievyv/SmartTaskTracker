@@ -14,12 +14,14 @@ public class TasksController : ControllerBase
 {
     private readonly TaskService _taskService;
     private readonly TaskMemoryService _taskMemoryService;
+    private readonly NaturalLanguageTaskService _naturalLanguageTaskService;
     private readonly IWebHostEnvironment _env;
 
-    public TasksController(TaskService taskService, TaskMemoryService taskMemoryService, IWebHostEnvironment env)
+    public TasksController(TaskService taskService, TaskMemoryService taskMemoryService, NaturalLanguageTaskService naturalLanguageTaskService, IWebHostEnvironment env)
     {
         _taskService = taskService;
         _taskMemoryService = taskMemoryService;
+        _naturalLanguageTaskService = naturalLanguageTaskService;
         _env = env;
     }
 
@@ -130,6 +132,16 @@ public class TasksController : ControllerBase
     {
         var results = await _taskService.GetSuggestedNextAsync(GetUserId(), topK);
         return Ok(results);
+    }
+
+    /// <summary>State: User sent free text. Intent: Get structured task for create form. Action: LLM parse or keyword fallback.</summary>
+    [HttpPost("from-natural-language")]
+    public async Task<ActionResult<CreateTaskDto>> ParseNaturalLanguage([FromBody] ParseNaturalLanguageRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.Text))
+            return BadRequest(new { message = "Text is required" });
+        var parsed = await _naturalLanguageTaskService.ParseAsync(request.Text.Trim());
+        return Ok(parsed);
     }
 
     [HttpPost("bulk-delete")]

@@ -70,6 +70,7 @@ builder.Services.AddScoped<TagService>();
 builder.Services.Configure<TaskMemoryOptions>(builder.Configuration.GetSection(TaskMemoryOptions.SectionName));
 builder.Services.AddHttpClient();
 builder.Services.AddScoped<TaskMemoryService>();
+builder.Services.AddScoped<NaturalLanguageTaskService>();
 
 var frontendUrl = Environment.GetEnvironmentVariable("FRONTEND_URL")?.Trim();
 var origins = string.IsNullOrEmpty(frontendUrl)

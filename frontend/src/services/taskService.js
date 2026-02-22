@@ -95,5 +95,10 @@ export const taskService = {
     const params = topK != null ? { topK } : {}
     const { data } = await api.get('/tasks/ai-suggestions', { params })
     return data
+  },
+
+  parseNaturalLanguage: async (text) => {
+    const { data } = await api.post('/tasks/from-natural-language', { text: text || '' })
+    return data
   }
 }
