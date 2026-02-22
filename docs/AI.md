@@ -45,3 +45,34 @@
 **File layout:** `TaskMemoryService.cs`, `TaskIntent.cs`, `TaskMemoryOptions.cs`, DTOs `TaskSearchDto`, helper `LRUCache.cs`.
 
 Full design details: see repo history (was `IA_DESIGN.md` + `AI_USE_CASES.md`).
+
+---
+
+## Follow the code (trace flows)
+
+Use this to find and follow the implementation when you need to explain or change behavior.
+
+### Semantic search
+
+| Step | Where | What to look at |
+|------|--------|------------------|
+| 1 | **Frontend** | `frontend/src/pages/Tasks.jsx` — search input; value in `search` state. |
+| 2 | **Frontend** | `frontend/src/hooks/useTasks.js` — when `search` non-empty, calls `taskService.search(trimmed)`. |
+| 3 | **Frontend** | `frontend/src/services/taskService.js` — `search()` → `GET /api/tasks/search?query=...`. |
+| 4 | **Backend** | `Controllers/TasksController.cs` — `Search()` (route `[HttpGet("search")]`). |
+| 5 | **Backend** | `Services/TaskMemoryService.cs` — `SearchSemanticAsync()`: load tasks → build text → embeddings (with `LRUCache`) → cosine similarity → return `TaskSearchResultDto` list. |
+| 6 | **Fallback** | Same controller: if semantic returns 0 results and query not empty, calls `TaskService.GetTasksAsync(..., search, ...)` (keyword); same in `TaskService.cs` ~line 37 (title, description, tags, fileName). |
+
+Key backend files: `TaskMemoryService.cs` (embedding + similarity), `TaskMemoryOptions.cs` (threshold, topK, API key), `Helpers/LRUCache.cs` (embedding cache).
+
+### Natural language task (Add from text)
+
+| Step | Where | What to look at |
+|------|--------|------------------|
+| 1 | **Frontend** | `frontend/src/pages/Tasks.jsx` — sparkle dropdown, "Add from text" input; submit calls `taskService.parseNaturalLanguage(nlInput)`. |
+| 2 | **Frontend** | `frontend/src/services/taskService.js` — `parseNaturalLanguage(text)` → `POST /api/tasks/from-natural-language` body `{ text }`. |
+| 3 | **Backend** | `Controllers/TasksController.cs` — `ParseNaturalLanguage()` → `NaturalLanguageTaskService.ParseAsync(request.Text)`. |
+| 4 | **Backend** | `Services/NaturalLanguageTaskService.cs` — `ParseAsync()`: if LLM key set → call LLM, map response to `CreateTaskDto`; else → keyword fallback. Merge fallback (e.g. past date, empty tags) in `MergeFallback()`. |
+| 5 | **Fallback** | Same file: `ParseKeywordFallback()` uses `NaturalLanguageParseHelper` (dates, time, priority, title, tags). |
+
+Key backend files: `NaturalLanguageTaskService.cs` (LLM + merge + fallback), `Helpers/NaturalLanguageParseHelper.cs` (date/time/priority/string parsing), `Helpers/TaskMemoryOptions.cs` (LlmProvider, LlmModel, API key).

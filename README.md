@@ -41,14 +41,14 @@ Swagger: http://localhost:5000/swagger (dev only)
 ```
 SmartTaskTracker/
   README.md              ← you are here
-  .gitignore              Git ignore rules
-  .env                    Local frontend env (optional; VITE_API_URL fallback in api.js)
+  .gitignore             Git ignore rules
+  .env                   Local frontend env (optional; VITE_API_URL fallback in api.js)
   render.yaml             Render backend + DB config (Blueprint); env vars set in dashboard for manual deploy
-  netlify.toml            Netlify frontend build (base=frontend, publish=dist)
+  netlify.toml           Netlify frontend build (base=frontend, publish=dist)
   docs/
     TESTING.md            Manual test checklist (State → Intent → Action)
     DEPLOYMENT.md         Deploy to Netlify + Render (step-by-step)
-    AI.md                 AI plan: use cases + design (semantic search, NL tasks)
+    AI.md                 AI plan: use cases + design + follow-the-code flows (semantic search, NL tasks)
     REFERENCE.md          DB schema summary, backend setup, unit test todos
 ```
 
@@ -126,7 +126,8 @@ backend/SmartTaskTracker.API/
     TaskTemplateService.cs Template logic
     TagService.cs          Tag + color
     SettingsService.cs     User settings; ensures user exists before creating UserSettings (avoids FK + 401 when stale token)
-    TaskMemoryService.cs    Semantic search only (lazy embeddings)
+    TaskMemoryService.cs   Semantic search (lazy embeddings)
+    NaturalLanguageTaskService.cs  NL task parse (LLM + keyword fallback)
   Models/                   Domain entities
     User.cs                User + refresh token
     Task.cs                Task (priority, status, recurrence, etc.)
@@ -150,10 +151,12 @@ backend/SmartTaskTracker.API/
     DbSeeder.cs             Dev seed data
   Helpers/
     JwtHelper.cs            JWT + refresh token generation
+    JwtOptions.cs           JWT key/issuer/audience (resolved once in Program)
     TaskMapper.cs           Entity ↔ DTO
-    TaskMemoryOptions.cs    TaskMemory config (provider, topK, cache, timeout, maxText, concurrency)
+    TaskMemoryOptions.cs    TaskMemory + LLM config (provider, topK, cache, LlmProvider, LlmModel)
     TaskIntent.cs           Keyword, Semantic
     LRUCache.cs             LRU cache for embeddings
+    NaturalLanguageParseHelper.cs  Date/time/priority/title/tags parsing (keyword fallback)
   Middleware/
     ErrorHandlingMiddleware.cs  Global error handling; auth exceptions (token expired, user not found) → 401
   Properties/
@@ -173,7 +176,7 @@ backend/SmartTaskTracker.API.Tests/
 
 ## Features (short)
 
-Tasks: CRUD, priorities, tags, status, due dates, recurring, templates, subtasks, dependencies, time tracking, calendar, CSV import/export, search/filter/sort, bulk ops, keyboard shortcuts, dark mode, settings, browser notifications. **Planned ([docs/AI.md](docs/AI.md)):** Semantic search, natural-language tasks. **Render free tier:** First request may wake server (30–60s); app shows banner and auto-retries. 401 → clear session, redirect to login.
+Tasks: CRUD, priorities, tags, status, due dates, recurring, templates, subtasks, dependencies, time tracking, calendar, CSV import/export, search/filter/sort, bulk ops, keyboard shortcuts, dark mode, settings, browser notifications. **AI ([docs/AI.md](docs/AI.md)):** Semantic search (meaning + keyword fallback), natural-language task creation (LLM + keyword fallback). **Render free tier:** First request may wake server (30–60s); app shows banner and auto-retries. 401 → clear session, redirect to login.
 
 ---
 
