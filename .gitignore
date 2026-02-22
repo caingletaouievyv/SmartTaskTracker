@@ -27,7 +27,6 @@ build/
 .env.local
 appsettings.Development.json
 ia.md
-interview.md
 
 # Database
 *.db
