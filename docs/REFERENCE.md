@@ -63,5 +63,6 @@ Full table/column list: see repo history (was `DATABASE_SCHEMA.md`).
 
 ## AI features (current)
 
-**State:** Semantic search + natural language task implemented. "What's next?" = DB ranking only (not AI).  
-**NL task:** `POST /api/tasks/from-natural-language` body `{ "text": "..." }` → `CreateTaskDto`. UI: **+ Add Task** button group — main opens blank modal; sparkle split opens dropdown with text input + "Add from text". LLM key: env or `TaskMemory:LlmApiKey`; no key = keyword fallback; LLM + fallback merged. See [AI.md](AI.md).
+**State:** Semantic search + natural language task + smart tagging implemented. "What's next?" = DB ranking only (not AI).  
+**NL task:** `POST /api/tasks/from-natural-language` body `{ "text": "..." }` → `CreateTaskDto`. UI: **+ Add Task** button group — main opens blank modal; sparkle split opens dropdown with text input + "Add from text". LLM key: env or `TaskMemory:LlmApiKey`; no key = keyword fallback; LLM + fallback merged.  
+**Smart tagging:** ✅ Implemented. Input = title + description; `GET /api/tasks/suggest-tags?text=...&topK=5`. **Next:** Other use cases in [AI.md](AI.md).

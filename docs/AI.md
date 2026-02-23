@@ -1,8 +1,8 @@
 # AI Plan (Use Cases + Design)
 
-**State:** Semantic search done. Natural language task done (LLM parse + keyword fallback).  
+**State:** Semantic search done. Natural language task done. Smart tagging done.  
 **Intent:** AI/LLM features only (ranking/"What's next?" is DB-only, not in this doc).  
-**Action:** Next = smart tagging or other use cases below.
+**Action:** Pick next use case from table below.
 
 ---
 
@@ -12,7 +12,7 @@
 |---------|------|-----|--------|
 | **Semantic search** | Find tasks by meaning ("meetings this week" → standup, sync, review) | Embeddings + cosine similarity | ✅ Done |
 | **Natural language task** | "Review report by Friday, high priority" → structured task | LLM parse (OpenAI); keyword fallback | ✅ Done |
-| **Smart tagging** | Suggest tags from similar past tasks | Semantic similarity + tag frequency | — |
+| **Smart tagging** | Suggest tags from similar past tasks | Semantic similarity + tag frequency | ✅ Done |
 | **Task summarization** | Short overview of long descriptions | LLM or extractive | — |
 | **Smart due date** | Suggest realistic due date from similar tasks | Historical + workload | — |
 | **Context reminders** | Remind at optimal time (patterns, dependencies) | Activity + dependency check | — |
@@ -38,7 +38,7 @@
 
 **New backend:** `TaskMemoryService`, `TaskIntent` enum; endpoints: `GET /api/tasks/search?query=&intent=`, dev-only `embedding-check`.
 
-**Lazy:** Embeddings only when semantic search requested; LRU cache; no precompute on startup.
+**Lazy:** Embeddings only when needed (search or suggest-tags); one LRU cache (task Id → embedding) shared by semantic search and smart tagging; no precompute on startup. Same cache can serve future features (e.g. dependency suggestions). Free HF tier: task embeddings reused from cache to limit API calls.
 
 **Embeddings:** Hugging Face API (recommended) or local ONNX. Config: `TaskMemory.EmbeddingProvider`, `DefaultThreshold`, `DefaultTopK`, `CacheSize`.
 
@@ -76,3 +76,18 @@ Key backend files: `TaskMemoryService.cs` (embedding + similarity), `TaskMemoryO
 | 5 | **Fallback** | Same file: `ParseKeywordFallback()` uses `NaturalLanguageParseHelper` (dates, time, priority, title, tags). |
 
 Key backend files: `NaturalLanguageTaskService.cs` (LLM + merge + fallback), `Helpers/NaturalLanguageParseHelper.cs` (date/time/priority/string parsing), `Helpers/TaskMemoryOptions.cs` (LlmProvider, LlmModel, API key).
+
+### Smart tagging
+
+**State:** User is creating/editing a task (title or description present). Existing tasks have embeddings and tags.  
+**Intent:** Suggest tags from similar past tasks; apply with one click.  
+**Action:** Input = **title + description** (frontend sends both as `text`). Backend: embed text → similar tasks (cosine) → tag frequency → top N with color. Frontend: debounce 300ms; "From similar tasks:" row. No key → `[]`; local tag filter unchanged.
+
+| Step | Where | What to look at |
+|------|--------|------------------|
+| 1 | Frontend | TaskModal — debounced title/description → getSuggestedTags(text). |
+| 2 | Frontend | taskService.getSuggestedTags(text, topK) → GET /api/tasks/suggest-tags. |
+| 3 | Backend | TasksController — SuggestTags(text, topK) → TaskMemoryService.SuggestTagsAsync. |
+| 4 | Backend | TaskMemoryService.SuggestTagsAsync — embed text, similar tasks, tag frequency, return TagSuggestionDto. |
+
+Key: `GET /api/tasks/suggest-tags?text=...&topK=5`. DTO: `TagSuggestionDto` in TaskSearchDto.cs. 

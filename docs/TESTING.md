@@ -2,6 +2,8 @@
 
 **State:** Dev environment. **Intent:** Verify features. **Action:** Follow scenarios (each test = State → Intent → Action).
 
+**See also:** [AI.md](AI.md) for AI flows (semantic search, NL task, smart tagging plan) and follow-the-code.
+
 ---
 
 ## Quick Start
@@ -716,6 +718,26 @@ Semantic = embedding similarity on **title + description + priority label + tag 
 | 9 | `(empty)` | — | Button disabled | — | — |
 
 **Notes:** Times in UTC. “Next Friday” = next occurrence of that weekday. With `OPENAI_API_KEY` set, LLM may return slightly different wording; fallback (no key) uses keyword rules above.
+
+---
+
+### Test 48: Smart tagging (suggest tags from similar tasks)
+
+**State:** Create/edit task modal open; user has typed a title and/or description. Other tasks with tags exist.  
+**Intent:** See tag suggestions from similar past tasks and add them with one click.  
+**Action:** Enter or change title and/or description → see "From similar tasks" suggestions → click to add.
+
+**Input:** Suggestions use **title + description** (both sent as `text`; either or both can be used).
+
+1. Ensure you have tasks with tags (e.g. "Complete sprint retrospective" with Work, Urgent).
+2. Click **+ Add Task** → in the create modal, type a title (and optionally description) similar to existing tasks (e.g. `Plan team sync` or `Review project docs`).
+3. After ~300ms (debounce), ✅ "From similar tasks:" shows tags from similar past tasks (e.g. Work, Urgent).
+4. Click a suggested tag → ✅ it is added to the task's tags.
+5. Without embedding API key (or if backend returns empty): ✅ no "From similar tasks" row; existing type-to-filter tag dropdown still works.
+
+**Validation:**
+- Backend: `GET /api/tasks/suggest-tags?text=...` (semantic similarity + tag frequency). See [AI.md](AI.md) Smart tagging (implemented).
+- Local tag filter (typing in tag input) unchanged; smart suggestions are additive.
 
 ---
 

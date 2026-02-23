@@ -292,6 +292,79 @@ public class TaskMemoryService
         return results;
     }
 
+    private const int SuggestTagsSimilarTaskCount = 15;
+
+    /// <summary>Suggest tags from similar past tasks: embed text, find similar tasks, aggregate tags by frequency. No key → empty list.</summary>
+    public async Task<List<TagSuggestionDto>> SuggestTagsAsync(
+        int userId,
+        string text,
+        int topK = 5,
+        CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return new List<TagSuggestionDto>();
+        var thresh = _options.DefaultThreshold;
+        var tasks = await _context.Tasks
+            .AsNoTracking()
+            .Where(t => t.UserId == userId && !t.ParentTaskId.HasValue && !t.IsArchived)
+            .Select(t => new { t.Id, t.Title, t.Description, t.Priority, t.Notes })
+            .ToListAsync(ct);
+        if (tasks.Count == 0) return new List<TagSuggestionDto>();
+
+        var taskIds = tasks.Select(t => t.Id).ToList();
+        var tagData = await _context.TaskTags
+            .AsNoTracking()
+            .Where(tt => taskIds.Contains(tt.TaskId))
+            .Select(tt => new { tt.TaskId, tt.Tag.Name, tt.Tag.Color })
+            .ToListAsync(ct);
+        var tagNamesByTaskId = tagData.GroupBy(x => x.TaskId).ToDictionary(g => g.Key, g => string.Join(", ", g.Select(x => x.Name)));
+        var tagColors = tagData.GroupBy(x => x.Name).ToDictionary(g => g.Key, g => g.First().Color);
+
+        var taskItems = tasks
+            .Select(t =>
+            {
+                var tagNames = tagNamesByTaskId.TryGetValue(t.Id, out var names) ? names : "";
+                var textForEmbed = BuildEmbeddingText(t.Title, t.Description, t.Priority, tagNames, t.Notes);
+                return (t.Id, Text: textForEmbed);
+            })
+            .Where(x => !string.IsNullOrEmpty(x.Text))
+            .ToList();
+
+        var queryVec = await GetEmbeddingAsync(text.Trim(), ct);
+        if (queryVec == null) return new List<TagSuggestionDto>();
+
+        var inputs = new List<string>();
+        var idsToEmbed = new List<int>();
+        foreach (var (id, t) in taskItems)
+        {
+            if (_embeddingCache.Get(id) == null) { inputs.Add(t); idsToEmbed.Add(id); }
+        }
+        var batchVecs = await GetEmbeddingsBatchAsync(inputs, ct);
+        for (var i = 0; i < idsToEmbed.Count && i < batchVecs.Count; i++)
+            if (batchVecs[i] != null) _embeddingCache.Set(idsToEmbed[i], batchVecs[i]!);
+
+        var scores = new List<(int TaskId, double Score)>();
+        foreach (var (id, t) in taskItems)
+        {
+            var vec = _embeddingCache.Get(id) ?? await GetEmbeddingAsync(t, ct);
+            if (vec == null) continue;
+            var score = CosineSimilarity(queryVec, vec);
+            if (score >= thresh) scores.Add((id, score));
+        }
+        var topTasks = scores.OrderByDescending(x => x.Score).Take(SuggestTagsSimilarTaskCount).Select(x => x.TaskId).ToHashSet();
+        var tagCounts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        foreach (var tt in tagData.Where(x => topTasks.Contains(x.TaskId)))
+        {
+            tagCounts.TryGetValue(tt.Name, out var c);
+            tagCounts[tt.Name] = c + 1;
+        }
+        var ordered = tagCounts.OrderByDescending(x => x.Value).Take(topK).Select(x => new TagSuggestionDto
+        {
+            Name = x.Key,
+            Color = tagColors.TryGetValue(x.Key, out var color) ? color : null
+        }).ToList();
+        return ordered;
+    }
+
     public async Task<(bool Ok, string Reason)> GetEmbeddingDiagnosticAsync(CancellationToken ct = default)
     {
         var key = GetApiKey();

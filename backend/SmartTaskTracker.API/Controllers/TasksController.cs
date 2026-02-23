@@ -134,6 +134,14 @@ public class TasksController : ControllerBase
         return Ok(results);
     }
 
+    [HttpGet("suggest-tags")]
+    public async Task<ActionResult<List<TagSuggestionDto>>> SuggestTags([FromQuery] string? text, [FromQuery] int topK = 5)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return Ok(new List<TagSuggestionDto>());
+        var results = await _taskMemoryService.SuggestTagsAsync(GetUserId(), text.Trim(), topK);
+        return Ok(results);
+    }
+
     /// <summary>State: User sent free text. Intent: Get structured task for create form. Action: LLM parse or keyword fallback.</summary>
     [HttpPost("from-natural-language")]
     public async Task<ActionResult<CreateTaskDto>> ParseNaturalLanguage([FromBody] ParseNaturalLanguageRequest request)

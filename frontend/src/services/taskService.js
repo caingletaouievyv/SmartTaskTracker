@@ -97,6 +97,13 @@ export const taskService = {
     return data
   },
 
+  getSuggestedTags: async (text, topK = 5) => {
+    if (!text?.trim()) return []
+    const params = { text: text.trim(), topK }
+    const { data } = await api.get('/tasks/suggest-tags', { params })
+    return data || []
+  },
+
   parseNaturalLanguage: async (text) => {
     const { data } = await api.post('/tasks/from-natural-language', { text: text || '' })
     return data

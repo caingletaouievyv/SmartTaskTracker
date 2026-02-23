@@ -415,7 +415,8 @@ function TaskModal({ show, onClose, onSubmit, task, isEditing, openedFromNatural
   const [pendingSubtaskOrder, setPendingSubtaskOrder] = useState(null) // Store pending reorder until Update is clicked
   const [showTagSuggestions, setShowTagSuggestions] = useState(false)
   const [allTags, setAllTags] = useState({})
-  
+  const [suggestedTagsFromSimilar, setSuggestedTagsFromSimilar] = useState([])
+
   useEffect(() => {
     const fetchTags = async () => {
       try {
@@ -429,7 +430,7 @@ function TaskModal({ show, onClose, onSubmit, task, isEditing, openedFromNatural
       fetchTags()
     }
   }, [show])
-  
+
   const getTagSuggestions = () => {
     if (!tagInput.trim()) return []
     const input = tagInput.trim().toLowerCase()
@@ -457,6 +458,24 @@ function TaskModal({ show, onClose, onSubmit, task, isEditing, openedFromNatural
   })
 
   const isBlocked = isEditing && task?.canStart === false && task?.dependsOnTaskIds && task.dependsOnTaskIds.length > 0
+
+  useEffect(() => {
+    if (!show) return
+    const text = [formData.title, formData.description].filter(Boolean).join(' ').trim()
+    if (!text) {
+      setSuggestedTagsFromSimilar([])
+      return
+    }
+    const t = setTimeout(async () => {
+      try {
+        const list = await taskService.getSuggestedTags(text)
+        setSuggestedTagsFromSimilar(Array.isArray(list) ? list : [])
+      } catch {
+        setSuggestedTagsFromSimilar([])
+      }
+    }, 300)
+    return () => clearTimeout(t)
+  }, [show, formData.title, formData.description])
 
   useEffect(() => {
     if (task) {
@@ -567,6 +586,8 @@ function TaskModal({ show, onClose, onSubmit, task, isEditing, openedFromNatural
   }
 
   if (!show) return null
+
+  const suggestedTagsToShow = suggestedTagsFromSimilar.filter(t => !formData.tags.includes(t.name))
 
   return (
     <div className="modal show d-block" tabIndex="-1" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
@@ -899,6 +920,22 @@ function TaskModal({ show, onClose, onSubmit, task, isEditing, openedFromNatural
                     </div>
                   )}
                 </div>
+                {suggestedTagsToShow.length > 0 && (
+                  <div className="mt-2">
+                    <span className="text-muted small me-2">From similar tasks:</span>
+                    {suggestedTagsToShow.map((t, idx) => (
+                        <button
+                          key={idx}
+                          type="button"
+                          className="btn btn-sm me-1 mb-1 border"
+                          style={{ backgroundColor: t.color || allTags[t.name] || '#6c757d', color: '#fff' }}
+                          onClick={() => addTag(t.name)}
+                        >
+                          {t.name}
+                        </button>
+                      ))}
+                  </div>
+                )}
                 </div>
               <div className="mb-3">
                 <label className="form-label">Attachment</label>
