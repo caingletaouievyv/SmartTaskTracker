@@ -104,6 +104,12 @@ export const taskService = {
     return data || []
   },
 
+  getSuggestedDependencies: async (taskId, topK = 5) => {
+    if (!taskId) return []
+    const { data } = await api.get(`/tasks/${taskId}/suggest-dependencies`, { params: { topK } })
+    return data || []
+  },
+
   parseNaturalLanguage: async (text) => {
     const { data } = await api.post('/tasks/from-natural-language', { text: text || '' })
     return data

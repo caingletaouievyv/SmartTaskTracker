@@ -17,3 +17,9 @@ public class TagSuggestionDto
     public string Name { get; set; } = "";
     public string? Color { get; set; }
 }
+
+public class TaskDependencySuggestionDto
+{
+    public int Id { get; set; }
+    public string Title { get; set; } = "";
+}

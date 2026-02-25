@@ -274,8 +274,7 @@ After making changes:
 Once deployed:
 - ✅ Share your app URL with employers/friends
 - ✅ Add to your portfolio
-- ✅ Test all features in production
-- ✅ Then implement AI features (Phase 3)
+- ✅ Test all features in production (including AI: semantic search, Add from text, smart tagging, dependency suggestions — see [docs/AI.md](AI.md))
 
 ---
 

@@ -1,8 +1,6 @@
 # AI Plan (Use Cases + Design)
 
-**State:** Semantic search done. Natural language task done. Smart tagging done.  
-**Intent:** AI/LLM features only (ranking/"What's next?" is DB-only, not in this doc).  
-**Action:** Pick next use case from table below.
+Semantic search, natural language task, smart tagging, and dependency suggestions are done. This doc covers AI/LLM features only ("What's next?" is DB ranking, not here). Pick next use case from the table below.
 
 ---
 
@@ -16,7 +14,7 @@
 | **Task summarization** | Short overview of long descriptions | LLM or extractive | — |
 | **Smart due date** | Suggest realistic due date from similar tasks | Historical + workload | — |
 | **Context reminders** | Remind at optimal time (patterns, dependencies) | Activity + dependency check | — |
-| **Dependency suggestions** | Suggest "depends on X" from patterns | Semantic + NL hints | — |
+| **Dependency suggestions** | Suggest "depends on X" from patterns | Semantic + same cache | ✅ Done |
 
 **MVP order:** 1) Semantic search ✅, 2) Natural language creation ✅.
 
@@ -30,19 +28,19 @@
 
 ---
 
-## IA design (State → Intent → Action)
+## IA design
 
-**State:** Cached task embeddings, user context.  
-**Intent:** Keyword search, semantic search, filter.  
-**Action:** Load/compute embeddings (lazy), classify intent, retrieve with threshold.
+**Context:** Cached task embeddings, user context.  
+**Goal:** Keyword search, semantic search, filter.  
+**Steps:** Load/compute embeddings (on demand), classify intent, retrieve with threshold.
 
 **New backend:** `TaskMemoryService`, `TaskIntent` enum; endpoints: `GET /api/tasks/search?query=&intent=`, dev-only `embedding-check`.
 
-**Lazy:** Embeddings only when needed (search or suggest-tags); one LRU cache (task Id → embedding) shared by semantic search and smart tagging; no precompute on startup. Same cache can serve future features (e.g. dependency suggestions). Free HF tier: task embeddings reused from cache to limit API calls.
+**Lazy loading:** Embeddings only when needed (search, suggest-tags, suggest-dependencies). Cache: in-memory LRU + DB (TaskEmbeddings). Task embedding: try memory → try DB → else call HF, then save to DB and memory. Invalidated on task update or delete (so recomputed on next use). Free HF tier: fewer API calls after redeploy.
 
 **Embeddings:** Hugging Face API (recommended) or local ONNX. Config: `TaskMemory.EmbeddingProvider`, `DefaultThreshold`, `DefaultTopK`, `CacheSize`.
 
-**File layout:** `TaskMemoryService.cs`, `TaskIntent.cs`, `TaskMemoryOptions.cs`, DTOs `TaskSearchDto`, helper `LRUCache.cs`.
+**File layout:** `TaskMemoryService.cs`, `TaskIntent.cs`, `TaskMemoryOptions.cs`, DTOs `TaskSearchDto`, helper `LRUCache.cs`, model `TaskEmbedding.cs`, table `TaskEmbeddings`.
 
 Full design details: see repo history (was `IA_DESIGN.md` + `AI_USE_CASES.md`).
 
@@ -79,9 +77,9 @@ Key backend files: `NaturalLanguageTaskService.cs` (LLM + merge + fallback), `He
 
 ### Smart tagging
 
-**State:** User is creating/editing a task (title or description present). Existing tasks have embeddings and tags.  
-**Intent:** Suggest tags from similar past tasks; apply with one click.  
-**Action:** Input = **title + description** (frontend sends both as `text`). Backend: embed text → similar tasks (cosine) → tag frequency → top N with color. Frontend: debounce 300ms; "From similar tasks:" row. No key → `[]`; local tag filter unchanged.
+**Context:** User is creating/editing a task (title or description present). Existing tasks have embeddings and tags.  
+**Goal:** Suggest tags from similar past tasks; apply with one click.  
+**Steps:** Input = **title + description** (frontend sends both as `text`). Backend: embed text → similar tasks (cosine) → tag frequency → top N with color. Frontend: debounce 300ms; "From similar tasks:" row. No key → `[]`; local tag filter unchanged.
 
 | Step | Where | What to look at |
 |------|--------|------------------|
@@ -90,4 +88,19 @@ Key backend files: `NaturalLanguageTaskService.cs` (LLM + merge + fallback), `He
 | 3 | Backend | TasksController — SuggestTags(text, topK) → TaskMemoryService.SuggestTagsAsync. |
 | 4 | Backend | TaskMemoryService.SuggestTagsAsync — embed text, similar tasks, tag frequency, return TagSuggestionDto. |
 
-Key: `GET /api/tasks/suggest-tags?text=...&topK=5`. DTO: `TagSuggestionDto` in TaskSearchDto.cs. 
+Key: `GET /api/tasks/suggest-tags?text=...&topK=5`. DTO: `TagSuggestionDto` in TaskSearchDto.cs.
+
+### Dependency suggestions
+
+**Context:** User editing a task; same task embeddings in cache as search/smart tagging.  
+**Goal:** Suggest "depends on" tasks from similar tasks’ dependency patterns.  
+**Steps:** Reuse TaskMemoryService: embed current task text → similar tasks (cosine, same cache) → from those, collect tasks they “depend on” → return top N as suggestions. one endpoint, e.g. `GET /api/tasks/{id}/suggest-dependencies?topK=5`. Fallback: no key or no similar tasks → `[]`.
+
+| Step | Where | What to look at |
+|------|--------|------------------|
+| 1 | Frontend | TaskModal — Depends On, "From similar tasks" button → getSuggestedDependencies(taskId). |
+| 2 | Frontend | taskService.getSuggestedDependencies(taskId, topK) → GET /api/tasks/{id}/suggest-dependencies. |
+| 3 | Backend | TasksController — SuggestDependencies(id, topK) → TaskMemoryService.SuggestDependenciesAsync. |
+| 4 | Backend | TaskMemoryService.SuggestDependenciesAsync — embed task text, similar tasks, TaskDependencies, return TaskDependencySuggestionDto. |
+
+Key: `GET /api/tasks/{id}/suggest-dependencies?topK=5`. DTO: `TaskDependencySuggestionDto` (Id, Title) in TaskSearchDto.cs.

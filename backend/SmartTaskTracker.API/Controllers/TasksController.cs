@@ -66,6 +66,8 @@ public class TasksController : ControllerBase
             return BadRequest(ModelState);
 
         var result = await _taskService.UpdateTaskAsync(id, dto, GetUserId());
+        if (result == TaskService.UpdateTaskResult.Success)
+            await _taskMemoryService.InvalidateTaskEmbeddingAsync(GetUserId(), id);
         return result switch
         {
             TaskService.UpdateTaskResult.Success => NoContent(),
@@ -79,6 +81,7 @@ public class TasksController : ControllerBase
     {
         var success = await _taskService.DeleteTaskAsync(id, GetUserId());
         if (!success) return NotFound();
+        await _taskMemoryService.InvalidateTaskEmbeddingAsync(GetUserId(), id);
         return NoContent();
     }
 
@@ -139,6 +142,13 @@ public class TasksController : ControllerBase
     {
         if (string.IsNullOrWhiteSpace(text)) return Ok(new List<TagSuggestionDto>());
         var results = await _taskMemoryService.SuggestTagsAsync(GetUserId(), text.Trim(), topK);
+        return Ok(results);
+    }
+
+    [HttpGet("{id}/suggest-dependencies")]
+    public async Task<ActionResult<List<TaskDependencySuggestionDto>>> SuggestDependencies(int id, [FromQuery] int topK = 5)
+    {
+        var results = await _taskMemoryService.SuggestDependenciesAsync(GetUserId(), id, topK);
         return Ok(results);
     }
 

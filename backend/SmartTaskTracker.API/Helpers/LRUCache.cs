@@ -27,6 +27,16 @@ public class LRUCache<TKey, TValue> where TKey : notnull
         }
     }
 
+    public void Remove(TKey key)
+    {
+        lock (_lock)
+        {
+            if (!_map.TryGetValue(key, out var node)) return;
+            _order.Remove(node);
+            _map.Remove(key);
+        }
+    }
+
     public void Set(TKey key, TValue value)
     {
         lock (_lock)

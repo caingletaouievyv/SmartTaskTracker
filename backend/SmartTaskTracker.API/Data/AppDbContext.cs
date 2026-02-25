@@ -16,6 +16,7 @@ public class AppDbContext : DbContext
     public DbSet<Tag> Tags { get; set; }
     public DbSet<TaskTag> TaskTags { get; set; }
     public DbSet<UserSettings> UserSettings { get; set; }
+    public DbSet<TaskEmbedding> TaskEmbeddings { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -50,6 +51,9 @@ public class AppDbContext : DbContext
             .WithMany()
             .HasForeignKey(td => td.DependsOnTaskId)
             .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<TaskEmbedding>()
+            .HasKey(te => te.TaskId);
     }
 }
 

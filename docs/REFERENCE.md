@@ -1,10 +1,6 @@
 # Reference
 
-**State:** Schema, setup, unit test todos.  
-**Intent:** Look up when needed.  
-**Action:** Use sections below.
-
-**Framework:** Lazy, simple, concise. Code and docs (AI.md, REFERENCE, TESTING) stay in sync; State → Intent → Action where applicable.
+Schema, setup, unit test todos. Use sections below when you need to look something up. Code and docs (AI, REFERENCE, TESTING) stay in sync.
 
 ---
 
@@ -27,9 +23,9 @@ Never commit `appsettings.Development.json` (in .gitignore).
 
 **API (not in schema):** `GET /api/health` — no auth; used for cold-start check (Render free tier). Returns `{ "status": "ok" }`.
 
-**Tables:** Users, Tasks, TaskTemplates, TaskHistory, TaskDependencies, Tags, TaskTags, UserSettings.
+**Tables:** Users, Tasks, TaskTemplates, TaskHistory, TaskDependencies, Tags, TaskTags, UserSettings, TaskEmbeddings.
 
-**Relations:** Users 1:N Tasks/TaskTemplates/Tags; Users 1:1 UserSettings; Tasks N:M Tags (TaskTags); Tasks N:M Tasks (TaskDependencies); Tasks 1:N TaskHistory; Tasks 1:N Tasks (ParentTaskId).
+**Relations:** Users 1:N Tasks/TaskTemplates/Tags; Users 1:1 UserSettings; Tasks N:M Tags (TaskTags); Tasks N:M Tasks (TaskDependencies); Tasks 1:N TaskHistory; Tasks 1:N Tasks (ParentTaskId). TaskEmbeddings: TaskId (PK), UserId, EmbeddingJson; invalidated on task update/delete.
 
 **Enums:** Priority 0–2 (Low/Medium/High), RecurrenceType 0–3 (None/Daily/Weekly/Monthly), TaskStatus 0–4 (Active/InProgress/OnHold/Completed/Cancelled).
 
@@ -47,7 +43,7 @@ Full table/column list: see repo history (was `DATABASE_SCHEMA.md`).
 
 **Priority:** Critical = TaskService ✅; High = useTasks ✅, TaskCard, TaskModal; then services/hooks; then components.
 
-**Pattern:** State → Intent → Action. Backend: xUnit `[Fact]`; Frontend: Vitest `describe`/`it`.
+**Pattern:** Backend: xUnit `[Fact]`; Frontend: Vitest `describe`/`it`.
 
 ---
 
@@ -63,6 +59,8 @@ Full table/column list: see repo history (was `DATABASE_SCHEMA.md`).
 
 ## AI features (current)
 
-**State:** Semantic search + natural language task + smart tagging implemented. "What's next?" = DB ranking only (not AI).  
-**NL task:** `POST /api/tasks/from-natural-language` body `{ "text": "..." }` → `CreateTaskDto`. UI: **+ Add Task** button group — main opens blank modal; sparkle split opens dropdown with text input + "Add from text". LLM key: env or `TaskMemory:LlmApiKey`; no key = keyword fallback; LLM + fallback merged.  
-**Smart tagging:** ✅ Implemented. Input = title + description; `GET /api/tasks/suggest-tags?text=...&topK=5`. **Next:** Other use cases in [AI.md](AI.md).
+**Current:** Semantic search + NL task + smart tagging + dependency suggestions implemented. "What's next?" = DB ranking only (not AI).
+
+**NL task:** `POST /api/tasks/from-natural-language` → `CreateTaskDto`. UI: **+ Add Task** (main = blank modal; sparkle = "Add from text"). LLM key: env or `TaskMemory:LlmApiKey`; no key = keyword fallback.
+
+**Smart tagging** ✅ · **Dependency suggestions** ✅ (`GET /api/tasks/{id}/suggest-dependencies`). **Next:** [AI.md](AI.md).

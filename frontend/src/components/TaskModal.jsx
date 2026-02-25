@@ -348,6 +348,8 @@ function TaskModal({ show, onClose, onSubmit, task, isEditing, openedFromNatural
   const [pendingSubtasks, setPendingSubtasks] = useState([])
   const [showHistory, setShowHistory] = useState(false)
   const [showDependencies, setShowDependencies] = useState(false)
+  const [suggestedDeps, setSuggestedDeps] = useState([])
+  const [suggestedDepsLoading, setSuggestedDepsLoading] = useState(false)
   
   const getDateTimeString = (dateValue) => {
     if (!dateValue) return ''
@@ -480,8 +482,8 @@ function TaskModal({ show, onClose, onSubmit, task, isEditing, openedFromNatural
   useEffect(() => {
     if (task) {
       setTagInput('')
-      setPendingSubtaskOrder(null) // Reset pending order when task changes
-      
+      setPendingSubtaskOrder(null)
+      setSuggestedDeps([])
       // If editing existing task (has id), clear pending subtasks
       // If using template (no id), initialize with template subtasks
       if (task.id) {
@@ -521,8 +523,9 @@ function TaskModal({ show, onClose, onSubmit, task, isEditing, openedFromNatural
       })
     } else {
       setTagInput('')
-      setPendingSubtasks([]) // Clear when no task
-      setShowDependencies(false) // Reset dependencies view
+      setPendingSubtasks([])
+      setShowDependencies(false)
+      setSuggestedDeps([])
       setFormData({ 
         title: '', 
         description: '', 
@@ -1045,6 +1048,43 @@ function TaskModal({ show, onClose, onSubmit, task, isEditing, openedFromNatural
                   </div>
                   {showDependencies && (
                     <>
+                      {isEditing && task?.id && (
+                        <div className="mb-2">
+                          <button
+                            type="button"
+                            className="btn btn-sm btn-outline-secondary"
+                            disabled={suggestedDepsLoading}
+                            onClick={async () => {
+                              setSuggestedDepsLoading(true)
+                              try {
+                                const list = await taskService.getSuggestedDependencies(task.id, 5)
+                                setSuggestedDeps(Array.isArray(list) ? list : [])
+                              } catch {
+                                setSuggestedDeps([])
+                              }
+                              setSuggestedDepsLoading(false)
+                            }}
+                          >
+                            {suggestedDepsLoading ? '…' : 'From similar tasks'}
+                          </button>
+                          {suggestedDeps.filter(t => !formData.dependsOnTaskIds.includes(t.id)).length > 0 && (
+                            <div className="mt-1">
+                              {suggestedDeps
+                                .filter(t => !formData.dependsOnTaskIds.includes(t.id))
+                                .map((t) => (
+                                  <button
+                                    key={t.id}
+                                    type="button"
+                                    className="btn btn-sm me-1 mb-1 btn-outline-primary"
+                                    onClick={() => setFormData({ ...formData, dependsOnTaskIds: [...formData.dependsOnTaskIds, t.id] })}
+                                  >
+                                    + {t.title}
+                                  </button>
+                                ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
                       <div className="border rounded p-2" style={{ maxHeight: '200px', overflowY: 'auto' }}>
                         {allTasks
                           .filter(t => !t.parentTaskId && t.id !== task?.id)

@@ -8,6 +8,7 @@ using SmartTaskTracker.API.Helpers;
 using SmartTaskTracker.API.Models;
 using TaskModel = SmartTaskTracker.API.Models.Task;
 using TaskStatus = SmartTaskTracker.API.Models.TaskStatus;
+using SysTask = System.Threading.Tasks.Task;
 
 namespace SmartTaskTracker.API.Services;
 
@@ -204,6 +205,61 @@ public class TaskMemoryService
         }
     }
 
+    private static float[]? ParseEmbeddingJson(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return null;
+        try
+        {
+            var arr = JsonSerializer.Deserialize<float[]>(json);
+            return arr is { Length: > 0 } ? arr : null;
+        }
+        catch { return null; }
+    }
+
+    private async Task<Dictionary<int, float[]>> TryLoadTaskEmbeddingsFromDbAsync(int userId, IEnumerable<int> taskIds, CancellationToken ct)
+    {
+        var ids = taskIds.ToList();
+        if (ids.Count == 0) return new Dictionary<int, float[]>();
+        var rows = await _context.TaskEmbeddings
+            .AsNoTracking()
+            .Where(te => te.UserId == userId && ids.Contains(te.TaskId))
+            .ToListAsync(ct);
+        var result = new Dictionary<int, float[]>();
+        foreach (var row in rows)
+        {
+            var vec = ParseEmbeddingJson(row.EmbeddingJson);
+            if (vec != null) result[row.TaskId] = vec;
+        }
+        return result;
+    }
+
+    private async SysTask SaveTaskEmbeddingToDbAsync(int userId, int taskId, float[] embedding, CancellationToken ct)
+    {
+        var json = JsonSerializer.Serialize(embedding);
+        var existing = await _context.TaskEmbeddings.FirstOrDefaultAsync(te => te.TaskId == taskId && te.UserId == userId, ct);
+        if (existing != null)
+        {
+            existing.EmbeddingJson = json;
+        }
+        else
+        {
+            _context.TaskEmbeddings.Add(new TaskEmbedding { TaskId = taskId, UserId = userId, EmbeddingJson = json });
+        }
+        await _context.SaveChangesAsync(ct);
+    }
+
+    /// <summary>Remove task embedding from memory and DB so it is recomputed on next use (e.g. after task update).</summary>
+    public async SysTask InvalidateTaskEmbeddingAsync(int userId, int taskId, CancellationToken ct = default)
+    {
+        _embeddingCache.Remove(taskId);
+        var row = await _context.TaskEmbeddings.FirstOrDefaultAsync(te => te.TaskId == taskId && te.UserId == userId, ct);
+        if (row != null)
+        {
+            _context.TaskEmbeddings.Remove(row);
+            await _context.SaveChangesAsync(ct);
+        }
+    }
+
     public async Task<List<TaskSearchResultDto>> SearchSemanticAsync(
         int userId,
         string query,
@@ -239,35 +295,37 @@ public class TaskMemoryService
             })
             .Where(x => !string.IsNullOrEmpty(x.Text))
             .ToList();
-        var inputs = new List<string> { query };
-        var taskIdsForBatch = new List<int>();
-        foreach (var (id, text) in taskItems)
-        {
-            var cached = _embeddingCache.Get(id);
-            if (cached == null) { inputs.Add(text); taskIdsForBatch.Add(id); }
-        }
-        float[]? queryVec = null;
-        var batchVecs = await GetEmbeddingsBatchAsync(inputs, ct);
-        if (batchVecs.Count > 0 && batchVecs[0] != null)
-        {
-            queryVec = batchVecs[0];
-            for (var i = 0; i < taskIdsForBatch.Count && i + 1 < batchVecs.Count; i++)
-                if (batchVecs[i + 1] != null) _embeddingCache.Set(taskIdsForBatch[i], batchVecs[i + 1]!);
-        }
+        var queryVec = await GetEmbeddingAsync(query, ct);
         if (queryVec == null)
         {
-            queryVec = await GetEmbeddingAsync(query, ct);
-            if (queryVec == null)
+            _logger.LogWarning("Semantic search: query embedding failed for \"{Query}\".", Truncate(query, 50));
+            return new List<TaskSearchResultDto>();
+        }
+
+        var missingIds = taskItems.Where(x => _embeddingCache.Get(x.Id) == null).Select(x => x.Id).ToList();
+        if (missingIds.Count > 0)
+        {
+            var dbLoaded = await TryLoadTaskEmbeddingsFromDbAsync(userId, missingIds, ct);
+            foreach (var (id, vec) in dbLoaded) _embeddingCache.Set(id, vec);
+            var stillMissing = taskItems.Where(x => _embeddingCache.Get(x.Id) == null).ToList();
+            if (stillMissing.Count > 0)
             {
-                _logger.LogWarning("Semantic search: query embedding failed for \"{Query}\".", Truncate(query, 50));
-                return new List<TaskSearchResultDto>();
+                var batchVecs = await GetEmbeddingsBatchAsync(stillMissing.Select(x => x.Text).ToList(), ct);
+                for (var i = 0; i < stillMissing.Count && i < batchVecs.Count; i++)
+                {
+                    if (batchVecs[i] != null)
+                    {
+                        _embeddingCache.Set(stillMissing[i].Id, batchVecs[i]!);
+                        await SaveTaskEmbeddingToDbAsync(userId, stillMissing[i].Id, batchVecs[i]!, ct);
+                    }
+                }
             }
         }
 
         var allScores = new List<(int TaskId, double Score)>();
-        foreach (var (id, text) in taskItems)
+        foreach (var (id, _) in taskItems)
         {
-            var taskVec = _embeddingCache.Get(id) ?? await GetEmbeddingAsync(text, ct);
+            var taskVec = _embeddingCache.Get(id);
             if (taskVec == null) continue;
             var score = CosineSimilarity(queryVec, taskVec);
             allScores.Add((id, score));
@@ -332,20 +390,30 @@ public class TaskMemoryService
         var queryVec = await GetEmbeddingAsync(text.Trim(), ct);
         if (queryVec == null) return new List<TagSuggestionDto>();
 
-        var inputs = new List<string>();
-        var idsToEmbed = new List<int>();
-        foreach (var (id, t) in taskItems)
+        var missingIds = taskItems.Where(x => _embeddingCache.Get(x.Id) == null).Select(x => x.Id).ToList();
+        if (missingIds.Count > 0)
         {
-            if (_embeddingCache.Get(id) == null) { inputs.Add(t); idsToEmbed.Add(id); }
+            var dbLoaded = await TryLoadTaskEmbeddingsFromDbAsync(userId, missingIds, ct);
+            foreach (var (id, vec) in dbLoaded) _embeddingCache.Set(id, vec);
+            var stillMissing = taskItems.Where(x => _embeddingCache.Get(x.Id) == null).ToList();
+            if (stillMissing.Count > 0)
+            {
+                var batchVecs = await GetEmbeddingsBatchAsync(stillMissing.Select(x => x.Text).ToList(), ct);
+                for (var i = 0; i < stillMissing.Count && i < batchVecs.Count; i++)
+                {
+                    if (batchVecs[i] != null)
+                    {
+                        _embeddingCache.Set(stillMissing[i].Id, batchVecs[i]!);
+                        await SaveTaskEmbeddingToDbAsync(userId, stillMissing[i].Id, batchVecs[i]!, ct);
+                    }
+                }
+            }
         }
-        var batchVecs = await GetEmbeddingsBatchAsync(inputs, ct);
-        for (var i = 0; i < idsToEmbed.Count && i < batchVecs.Count; i++)
-            if (batchVecs[i] != null) _embeddingCache.Set(idsToEmbed[i], batchVecs[i]!);
 
         var scores = new List<(int TaskId, double Score)>();
-        foreach (var (id, t) in taskItems)
+        foreach (var (id, _) in taskItems)
         {
-            var vec = _embeddingCache.Get(id) ?? await GetEmbeddingAsync(t, ct);
+            var vec = _embeddingCache.Get(id);
             if (vec == null) continue;
             var score = CosineSimilarity(queryVec, vec);
             if (score >= thresh) scores.Add((id, score));
@@ -363,6 +431,103 @@ public class TaskMemoryService
             Color = tagColors.TryGetValue(x.Key, out var color) ? color : null
         }).ToList();
         return ordered;
+    }
+
+    private const int SuggestDepsSimilarTaskCount = 15;
+
+    /// <summary>Suggest "depends on" tasks from similar tasks' dependency patterns. No key or no similar tasks → empty list.</summary>
+    public async Task<List<TaskDependencySuggestionDto>> SuggestDependenciesAsync(
+        int userId,
+        int taskId,
+        int topK = 5,
+        CancellationToken ct = default)
+    {
+        var task = await _taskService.GetTaskByIdAsync(taskId, userId);
+        if (task == null) return new List<TaskDependencySuggestionDto>();
+
+        var tagNames = task.Tags != null && task.Tags.Count > 0 ? string.Join(", ", task.Tags.Keys) : "";
+        var text = BuildEmbeddingText(task.Title, task.Description ?? "", (Priority)task.Priority, tagNames, task.Notes);
+
+        var thresh = _options.DefaultThreshold;
+        var tasks = await _context.Tasks
+            .AsNoTracking()
+            .Where(t => t.UserId == userId && !t.ParentTaskId.HasValue && !t.IsArchived && t.Id != taskId)
+            .Select(t => new { t.Id, t.Title, t.Description, t.Priority, t.Notes })
+            .ToListAsync(ct);
+        if (tasks.Count == 0) return new List<TaskDependencySuggestionDto>();
+
+        var taskIds = tasks.Select(t => t.Id).ToList();
+        var tagData = await _context.TaskTags
+            .AsNoTracking()
+            .Where(tt => taskIds.Contains(tt.TaskId))
+            .Select(tt => new { tt.TaskId, tt.Tag.Name })
+            .ToListAsync(ct);
+        var tagNamesByTaskId = tagData.GroupBy(x => x.TaskId).ToDictionary(g => g.Key, g => string.Join(", ", g.Select(x => x.Name)));
+
+        var taskItems = tasks
+            .Select(t =>
+            {
+                var tagStr = tagNamesByTaskId.TryGetValue(t.Id, out var n) ? n : "";
+                var textForEmbed = BuildEmbeddingText(t.Title, t.Description, t.Priority, tagStr, t.Notes);
+                return (t.Id, Text: textForEmbed);
+            })
+            .Where(x => !string.IsNullOrEmpty(x.Text))
+            .ToList();
+
+        var queryVec = await GetEmbeddingAsync(text, ct);
+        if (queryVec == null) return new List<TaskDependencySuggestionDto>();
+
+        var missingIds = taskItems.Where(x => _embeddingCache.Get(x.Id) == null).Select(x => x.Id).ToList();
+        if (missingIds.Count > 0)
+        {
+            var dbLoaded = await TryLoadTaskEmbeddingsFromDbAsync(userId, missingIds, ct);
+            foreach (var (id, vec) in dbLoaded) _embeddingCache.Set(id, vec);
+            var stillMissing = taskItems.Where(x => _embeddingCache.Get(x.Id) == null).ToList();
+            if (stillMissing.Count > 0)
+            {
+                var batchVecs = await GetEmbeddingsBatchAsync(stillMissing.Select(x => x.Text).ToList(), ct);
+                for (var i = 0; i < stillMissing.Count && i < batchVecs.Count; i++)
+                {
+                    if (batchVecs[i] != null)
+                    {
+                        _embeddingCache.Set(stillMissing[i].Id, batchVecs[i]!);
+                        await SaveTaskEmbeddingToDbAsync(userId, stillMissing[i].Id, batchVecs[i]!, ct);
+                    }
+                }
+            }
+        }
+
+        var scores = new List<(int TaskId, double Score)>();
+        foreach (var (id, _) in taskItems)
+        {
+            var vec = _embeddingCache.Get(id);
+            if (vec == null) continue;
+            var score = CosineSimilarity(queryVec, vec);
+            if (score >= thresh) scores.Add((id, score));
+        }
+        var topTaskIds = scores.OrderByDescending(x => x.Score).Take(SuggestDepsSimilarTaskCount).Select(x => x.TaskId).ToHashSet();
+        var depCounts = new Dictionary<int, int>();
+        var deps = await _context.TaskDependencies
+            .AsNoTracking()
+            .Where(d => topTaskIds.Contains(d.TaskId))
+            .Select(d => d.DependsOnTaskId)
+            .ToListAsync(ct);
+        var existingDepIds = (task.DependsOnTaskIds ?? new List<int>()).ToHashSet();
+        foreach (var depId in deps)
+        {
+            if (depId == taskId || existingDepIds.Contains(depId)) continue;
+            depCounts.TryGetValue(depId, out var c);
+            depCounts[depId] = c + 1;
+        }
+        var suggestedIds = depCounts.OrderByDescending(x => x.Value).Take(topK).Select(x => x.Key).ToList();
+        if (suggestedIds.Count == 0) return new List<TaskDependencySuggestionDto>();
+
+        var suggested = await _context.Tasks
+            .AsNoTracking()
+            .Where(t => suggestedIds.Contains(t.Id) && t.UserId == userId)
+            .Select(t => new TaskDependencySuggestionDto { Id = t.Id, Title = t.Title })
+            .ToListAsync(ct);
+        return suggested.OrderBy(t => suggestedIds.IndexOf(t.Id)).ToList();
     }
 
     public async Task<(bool Ok, string Reason)> GetEmbeddingDiagnosticAsync(CancellationToken ct = default)
