@@ -218,15 +218,16 @@ public class TaskMemoryService
 
     private async Task<Dictionary<int, float[]>> TryLoadTaskEmbeddingsFromDbAsync(int userId, IEnumerable<int> taskIds, CancellationToken ct)
     {
-        var ids = taskIds.ToList();
-        if (ids.Count == 0) return new Dictionary<int, float[]>();
+        var idSet = taskIds.ToHashSet();
+        if (idSet.Count == 0) return new Dictionary<int, float[]>();
         var rows = await _context.TaskEmbeddings
             .AsNoTracking()
-            .Where(te => te.UserId == userId && ids.Contains(te.TaskId))
+            .Where(te => te.UserId == userId)
             .ToListAsync(ct);
         var result = new Dictionary<int, float[]>();
         foreach (var row in rows)
         {
+            if (!idSet.Contains(row.TaskId)) continue;
             var vec = ParseEmbeddingJson(row.EmbeddingJson);
             if (vec != null) result[row.TaskId] = vec;
         }

@@ -2,7 +2,7 @@
 
 Drop your GIFs here; README references them as:
 
-**AI (implemented only):**
+**AI:**
 | File | Feature |
 |------|---------|
 | `ai-semantic-search.gif` | Semantic search |
