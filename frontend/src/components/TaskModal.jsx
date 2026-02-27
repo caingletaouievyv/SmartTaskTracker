@@ -927,7 +927,7 @@ function TaskModal({ show, onClose, onSubmit, task, isEditing, openedFromNatural
                 </div>
                 {suggestedTagsToShow.length > 0 && (
                   <div className="mt-2">
-                    <span className="text-muted small me-2">From similar tasks:</span>
+                    <span className="text-muted small me-2" title="Suggestions from similar tasks (AI)">✦ From similar tasks:</span>
                     {suggestedTagsToShow.map((t, idx) => (
                         <button
                           key={idx}
@@ -1069,7 +1069,7 @@ function TaskModal({ show, onClose, onSubmit, task, isEditing, openedFromNatural
                               setSuggestedDepsLoading(false)
                             }}
                           >
-                            {suggestedDepsLoading ? '…' : 'From similar tasks'}
+                            {suggestedDepsLoading ? '…' : '✦ From similar tasks'}
                           </button>
                           {suggestedDeps.filter(t => !formData.dependsOnTaskIds.includes(t.id)).length > 0 && (
                             <div className="mt-1">
