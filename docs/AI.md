@@ -18,7 +18,7 @@ Semantic search, natural language task, smart tagging, and dependency suggestion
 
 **MVP order:** 1) Semantic search ✅, 2) Natural language creation ✅.
 
-**NL task implementation:** `POST /api/tasks/from-natural-language` body `{ "text": "..." }` → returns `CreateTaskDto` (prefill **all** create-form fields). Backend: `NaturalLanguageTaskService` — **LLM** must return every inferable field (title, description, dueDate, priority, **tags** (1–5 from task name), notes, etc.); prompt specifies current/next year for dates and "never empty tags when task name present". **Fallback** merge fills any LLM-missed field (past date → fallback date; empty tags → derive from title). One source of truth: LLM first, fallback fills gaps. Frontend: single **Add task** control — primary button opens blank create modal; sparkle (✦) split opens dropdown with text input + "Add from text". Same AI logo convention as other sites.
+**NL task implementation:** `POST /api/tasks/from-natural-language` body `{ "text": "..." }` → returns `CreateTaskDto` (prefill **all** create-form fields). Backend: `NaturalLanguageTaskService` — **LLM** must return every inferable field (title, description, dueDate, priority, **tags** (1–5 from task name), notes, etc.); prompt specifies current/next year for dates and "never empty tags when task name present". **Fallback** merge fills any LLM-missed field (past date → fallback date; empty tags → derive from title). Tags from LLM or fallback are normalized to **first letter capital** (e.g. "report" → "Report") for uniform display. One source of truth: LLM first, fallback fills gaps. Frontend: single **Add task** control — primary button opens blank create modal; sparkle (✦) split opens dropdown with text input + "Add from text". Same AI logo convention as other sites.
 
 **Search:** Tasks list search is semantic-first with keyword fallback (`GET /api/tasks/search` → embeddings then keyword fallback). The search input shows the same sparkle (✦) so users see it’s meaning-aware; placeholder: "Search by meaning or keyword...".
 
@@ -79,14 +79,14 @@ Key backend files: `NaturalLanguageTaskService.cs` (LLM + merge + fallback), `He
 
 **Context:** User is creating/editing a task (title or description present). Existing tasks have embeddings and tags.  
 **Goal:** Suggest tags from similar past tasks; apply with one click.  
-**Steps:** Input = **title + description** (frontend sends both as `text`). Backend: embed text → similar tasks (cosine) → tag frequency → top N with color. Frontend: debounce 300ms; "From similar tasks:" row. No key → `[]`; local tag filter unchanged.
+**Steps:** Input = **title + description** (frontend sends both as `text`). Backend: embed text → similar tasks (cosine) → tag frequency → top N with color. If full-text query returns no suggestions, backend **tries each word** as a separate query (e.g. "Code Program" → try "Code", then "Program") and returns the first non-empty result. Frontend: debounce 300ms; "From similar tasks:" row. No key → `[]`; local tag filter unchanged.
 
 | Step | Where | What to look at |
 |------|--------|------------------|
 | 1 | Frontend | TaskModal — debounced title/description → getSuggestedTags(text). |
 | 2 | Frontend | taskService.getSuggestedTags(text, topK) → GET /api/tasks/suggest-tags. |
 | 3 | Backend | TasksController — SuggestTags(text, topK) → TaskMemoryService.SuggestTagsAsync. |
-| 4 | Backend | TaskMemoryService.SuggestTagsAsync — embed text, similar tasks, tag frequency, return TagSuggestionDto. |
+| 4 | Backend | TaskMemoryService.SuggestTagsAsync — embed text, similar tasks, tag frequency; if no results, try each word as query; return TagSuggestionDto. |
 
 Key: `GET /api/tasks/suggest-tags?text=...&topK=5`. DTO: `TagSuggestionDto` in TaskSearchDto.cs.
 
@@ -94,13 +94,13 @@ Key: `GET /api/tasks/suggest-tags?text=...&topK=5`. DTO: `TagSuggestionDto` in T
 
 **Context:** User editing a task; same task embeddings in cache as search/smart tagging.  
 **Goal:** Suggest "depends on" tasks from similar tasks’ dependency patterns.  
-**Steps:** Reuse TaskMemoryService: embed current task text → similar tasks (cosine, same cache) → from those, collect tasks they “depend on” → return top N as suggestions. one endpoint, e.g. `GET /api/tasks/{id}/suggest-dependencies?topK=5`. Fallback: no key or no similar tasks → `[]`.
+**Steps:** Reuse TaskMemoryService: embed current task **title + description only** (same input as smart tagging) → similar tasks (cosine, same cache) → from those, collect tasks they “depend on” → return top N as suggestions. Tasks that share any meaningful word (or weekend/saturday/sunday as one concept) get a score boost. one endpoint, e.g. `GET /api/tasks/{id}/suggest-dependencies?topK=5`. **Fallback:** if no similar tasks have dependencies, suggest similar tasks as candidates. No key or no similar tasks → `[]`.
 
 | Step | Where | What to look at |
 |------|--------|------------------|
 | 1 | Frontend | TaskModal — Depends On, "From similar tasks" button → getSuggestedDependencies(taskId). |
 | 2 | Frontend | taskService.getSuggestedDependencies(taskId, topK) → GET /api/tasks/{id}/suggest-dependencies. |
 | 3 | Backend | TasksController — SuggestDependencies(id, topK) → TaskMemoryService.SuggestDependenciesAsync. |
-| 4 | Backend | TaskMemoryService.SuggestDependenciesAsync — embed task text, similar tasks, TaskDependencies, return TaskDependencySuggestionDto. |
+| 4 | Backend | TaskMemoryService.SuggestDependenciesAsync — embed task **title + description**, similar tasks, TaskDependencies, return TaskDependencySuggestionDto. |
 
 Key: `GET /api/tasks/{id}/suggest-dependencies?topK=5`. DTO: `TaskDependencySuggestionDto` (Id, Title) in TaskSearchDto.cs.

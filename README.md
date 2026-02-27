@@ -2,11 +2,11 @@
 
 Full-stack task app — React + ASP.NET Core 9, JWT auth, SQLite/PostgreSQL. Run locally, test features, deploy (Netlify + Render). See below.
 
-**Live:** [Frontend](https://smarttasktracker.netlify.app/) · [Backend API](https://smarttasktracker-kue7.onrender.com)
+**Live:** [Frontend](https://smarttasktracker.netlify.app/) · [Backend](https://smarttasktracker-kue7.onrender.com)
 
 ---
 
-## Demo (portfolio — show all features)
+## Demo
 
 ### AI features ([docs/AI.md](docs/AI.md)):
 
@@ -21,10 +21,10 @@ Full-stack task app — React + ASP.NET Core 9, JWT auth, SQLite/PostgreSQL. Run
 
 | Feature | GIF | Steps |
 |--------|-----|-------|
-| **What's next?** | ![What's next](docs/demo/whats-next.gif) | Click "What's next?" → panel with suggested tasks + reason (DB ranking, not AI) → click title to open edit modal. |
-| **Auth** | ![Auth](docs/demo/auth.gif) | Register (e.g. `demo` / `demo@example.com` / `password123`) → Login → land on Tasks. |
+| **What's next?** | ![What's next](docs/demo/whats-next.gif) | Click "What's next?" → panel with suggested tasks + reason (DB ranking) → click title to open edit modal. |
+| **Auth** | ![Auth](docs/demo/auth.gif) | Register (e.g. `demo` / `demo@example.com` / `password123`) → Login → land on Tasks. One sample task is created on register (all fields "Sample" prefixed; no dependencies). |
 | **CRUD** | ![CRUD](docs/demo/crud.gif) | Add task (all fields: title, description, due, priority, status, tags, notes, recurrence, file, estimate, subtask, dependency). Edit once → change several fields → Save. Toggle complete → Delete. |
-| **Search** | ![Search](docs/demo/search.gif) | Keyword in search box; with API key also semantic (see AI row). |
+| **Search** | ![Search](docs/demo/search.gif) | Type in search box → results (keyword fallback when no semantic match). |
 | **Filters & sort** | ![Filters](docs/demo/filters.gif) | Today / This Week / High Priority; status filter; sort. Settings → Filter Preset → create → apply on Tasks. |
 | **Bulk** | ![Bulk](docs/demo/bulk.gif) | Select 2 tasks → Change Status → Completed. Select → Delete Selected. Select All → Clear. |
 | **Export / Import** | ![Export Import](docs/demo/export-import.gif) | Export CSV (with/without selection). Import CSV (sample file). |

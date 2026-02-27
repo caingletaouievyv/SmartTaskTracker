@@ -171,7 +171,12 @@ public class NaturalLanguageTaskService
     {
         if (!r.TryGetProperty(key, out var arr) || arr.ValueKind != JsonValueKind.Array)
             return new List<string>();
-        return arr.EnumerateArray().Select(e => e.GetString()?.Trim()).Where(s => !string.IsNullOrEmpty(s)).Cast<string>().Take(20).ToList();
+        return arr.EnumerateArray()
+            .Select(e => e.GetString()?.Trim())
+            .Where(s => !string.IsNullOrEmpty(s))
+            .Select(s => NaturalLanguageParseHelper.TagToUniform(s!))
+            .Take(20)
+            .ToList();
     }
 
     private static RecurrenceType ParseRecurrenceType(int? v)
@@ -264,7 +269,7 @@ public class NaturalLanguageTaskService
             {
                 var w = word.Trim();
                 if (w.Length >= 2 && !stop.Contains(w) && !tags.Any(t => string.Equals(t, w, StringComparison.OrdinalIgnoreCase)))
-                    tags.Add(w);
+                    tags.Add(NaturalLanguageParseHelper.TagToUniform(w));
                 if (tags.Count >= 5) break;
             }
         }

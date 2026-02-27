@@ -20,7 +20,7 @@ cd frontend && npm install && npm run dev       # → http://localhost:5173
 
 ### Test 1: Auth
 
-- **Register:** `/register` → username, email, password → redirect to `/tasks`. Validate: empty, username <3, password <6, invalid email.
+- **Register:** `/register` → username, email, password → redirect to `/tasks`. Validate: empty, username <3, password <6, invalid email. After register, one **sample task** is created automatically (title "Sample title", description "Sample description", tag "Sample", notes "Sample notes", etc.; no dependencies so dependency suggestions stay empty).
 - **Login:** `/login` → credentials → `/tasks`. Validate: wrong user/pass → "Invalid credentials".
 - **Protected routes:** Logout → open `/tasks` → redirect to `/login`. Delete `token` in Local Storage → refresh `/tasks` → redirect.
 - **Refresh token:** Delete `token` only → next API call → new tokens. Delete both tokens → redirect to `/login`.
@@ -140,19 +140,19 @@ Several tasks (e.g. high priority, due soon, no deps). What's next? → panel wi
 
 ### Test 16: Add from text (natural language)
 
-+ Add Task → sparkle (✦) → text input: e.g. `Review report by Friday, high priority` → Add from text. Modal opens with title, due (Friday), priority High; edit if needed → Create. Empty input → button disabled. With LLM key: API parse; without: keyword fallback (e.g. "high priority", "by Friday"). Quick checks: `tomorrow morning jog high prio`, `Call mom tomorrow`, `low prio admin task next week`, `meeting at 10am` (no date) — see [AI.md](AI.md).
++ Add Task → sparkle (✦) → text input: e.g. `Review report by Friday, high priority` → Add from text. Modal opens with title, due (Friday), priority High; edit if needed → Create. **Tags** from parse are normalized to first letter capital (e.g. Report, Work). Empty input → button disabled. With LLM key: API parse; without: keyword fallback (e.g. "high priority", "by Friday"). Quick checks: `tomorrow morning jog high prio`, `Call mom tomorrow`, `low prio admin task next week`, `meeting at 10am` (no date) — see [AI.md](AI.md).
 
 ---
 
 ### Test 17: Smart tagging
 
-Create/edit task → type title/description similar to existing tagged tasks → after ~300ms "From similar tasks:" suggestions → click tag → added. No API key → no suggestions; type-to-filter tag list still works. Backend: `GET /api/tasks/suggest-tags?text=...`.
+Create/edit task → type title/description similar to existing tagged tasks → after ~300ms "From similar tasks:" suggestions → click tag → added. If full text returns no suggestions, backend tries each word (e.g. "Code Program" → try "Code", then "Program"). No API key → no suggestions; type-to-filter tag list still works. Backend: `GET /api/tasks/suggest-tags?text=...`.
 
 ---
 
 ### Test 18: Dependency suggestions
 
-Edit task → Depends On → "From similar tasks" → suggestions → click to add → Save. No key → empty list. Backend: `GET /api/tasks/{id}/suggest-dependencies`.
+Edit task → Depends On → "From similar tasks" → suggestions → click to add → Save. Suggestions merge (1) tasks that similar tasks depend on and (2) similar tasks as candidates (by score), up to topK. Similarity uses **title + description only** for the current task (same as smart tagging); shared meaningful word (or weekend/saturday/sunday) adds boost. No key → empty list. Backend: `GET /api/tasks/{id}/suggest-dependencies`.
 
 ---
 

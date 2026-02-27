@@ -454,6 +454,24 @@ public class TaskService
         return TaskMapper.ToDto(task, new List<int>(), new List<string>(), new List<int>(), true, subtaskDtos, completedSubtasks, subtasks.Count, tags);
     }
 
+    /// <summary>Creates a single sample task for a new user. All fields use "Sample" prefix; no dependencies (so dependency suggestions stay empty for new users).</summary>
+    public async Task<TaskDto> CreateSampleTaskForUserAsync(int userId)
+    {
+        var dto = new CreateTaskDto
+        {
+            Title = "Sample title",
+            Description = "Sample description",
+            DueDate = DateTime.UtcNow.AddDays(7),
+            Priority = Priority.Medium,
+            Tags = new List<string> { "Sample" },
+            Notes = "Sample notes",
+            EstimatedTimeMinutes = 30,
+            Status = TaskStatus.Active,
+            RecurrenceType = RecurrenceType.None
+        };
+        return await CreateTaskAsync(dto, userId);
+    }
+
     public async Task<UpdateTaskResult> UpdateTaskAsync(int id, UpdateTaskDto dto, int userId)
     {
         var task = await _context.Tasks.FirstOrDefaultAsync(t => t.Id == id && t.UserId == userId);

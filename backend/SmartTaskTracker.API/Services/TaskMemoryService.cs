@@ -83,6 +83,38 @@ public class TaskMemoryService
         return string.Join(" ", parts.Where(s => !string.IsNullOrEmpty(s))).Trim();
     }
 
+    private static string BuildEmbeddingTextTitleAndDescriptionOnly(string? title, string? description) =>
+        string.Join(" ", new[] { title?.Trim() ?? "", description?.Trim() ?? "" }.Where(s => !string.IsNullOrWhiteSpace(s))).Trim();
+
+    private static bool ShareAnyMeaningfulWord(string textA, string textB)
+    {
+        if (string.IsNullOrWhiteSpace(textA) || string.IsNullOrWhiteSpace(textB)) return false;
+        var stop = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+            { "the", "and", "for", "by", "to", "in", "on", "at", "a", "an", "or", "is", "it", "as", "be" };
+        var weekendTerms = new[] { "weekend", "saturday", "sunday", "week" };
+        var wordsA = NormalizeWordsForOverlap(ExtractWords(textA), stop, weekendTerms);
+        var wordsB = NormalizeWordsForOverlap(ExtractWords(textB), stop, weekendTerms);
+        return wordsA.Overlaps(wordsB);
+    }
+
+    private static HashSet<string> NormalizeWordsForOverlap(IEnumerable<string> words, HashSet<string> stop, string[] weekendTerms)
+    {
+        var set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var w in words.Where(w => w.Length >= 2 && !stop.Contains(w)))
+        {
+            set.Add(w);
+            if (weekendTerms.Contains(w, StringComparer.OrdinalIgnoreCase)) set.Add("_week"); // so weekend/saturday/sunday overlap
+        }
+        return set;
+    }
+
+    private static IEnumerable<string> ExtractWords(string text)
+    {
+        return text.Split((char[]?)[' ', '\t', ',', '.', ':', ';', '!', '?', '"', '\'', '(', ')'], StringSplitOptions.RemoveEmptyEntries)
+            .Select(s => s.Trim().ToLowerInvariant())
+            .Where(s => s.Length > 0);
+    }
+
     public async Task<float[]?> GetEmbeddingAsync(string text, CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(text)) return null;
@@ -353,7 +385,6 @@ public class TaskMemoryService
 
     private const int SuggestTagsSimilarTaskCount = 15;
 
-    /// <summary>Suggest tags from similar past tasks: embed text, find similar tasks, aggregate tags by frequency. No key → empty list.</summary>
     public async Task<List<TagSuggestionDto>> SuggestTagsAsync(
         int userId,
         string text,
@@ -361,6 +392,7 @@ public class TaskMemoryService
         CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(text)) return new List<TagSuggestionDto>();
+        var trimmed = text.Trim();
         var thresh = _options.DefaultThreshold;
         var tasks = await _context.Tasks
             .AsNoTracking()
@@ -388,9 +420,6 @@ public class TaskMemoryService
             .Where(x => !string.IsNullOrEmpty(x.Text))
             .ToList();
 
-        var queryVec = await GetEmbeddingAsync(text.Trim(), ct);
-        if (queryVec == null) return new List<TagSuggestionDto>();
-
         var missingIds = taskItems.Where(x => _embeddingCache.Get(x.Id) == null).Select(x => x.Id).ToList();
         if (missingIds.Count > 0)
         {
@@ -411,32 +440,50 @@ public class TaskMemoryService
             }
         }
 
-        var scores = new List<(int TaskId, double Score)>();
-        foreach (var (id, _) in taskItems)
+        var queryStrings = new List<string> { trimmed };
+        var words = trimmed.Split((char[]?)[' ', '\t'], StringSplitOptions.RemoveEmptyEntries)
+            .Select(w => w.Trim())
+            .Where(w => w.Length >= 2)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Where(w => !queryStrings[0].Equals(w, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+        queryStrings.AddRange(words);
+
+        foreach (var queryText in queryStrings)
         {
-            var vec = _embeddingCache.Get(id);
-            if (vec == null) continue;
-            var score = CosineSimilarity(queryVec, vec);
-            if (score >= thresh) scores.Add((id, score));
+            var queryVec = await GetEmbeddingAsync(queryText, ct);
+            if (queryVec == null) continue;
+
+            var scores = new List<(int TaskId, double Score)>();
+            foreach (var (id, _) in taskItems)
+            {
+                var vec = _embeddingCache.Get(id);
+                if (vec == null) continue;
+                var score = CosineSimilarity(queryVec, vec);
+                if (score >= thresh) scores.Add((id, score));
+            }
+            var topTasks = scores.OrderByDescending(x => x.Score).Take(SuggestTagsSimilarTaskCount).Select(x => x.TaskId).ToHashSet();
+            if (topTasks.Count == 0) continue;
+
+            var tagCounts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            foreach (var tt in tagData.Where(x => topTasks.Contains(x.TaskId)))
+            {
+                tagCounts.TryGetValue(tt.Name, out var c);
+                tagCounts[tt.Name] = c + 1;
+            }
+            var ordered = tagCounts.OrderByDescending(x => x.Value).Take(topK).Select(x => new TagSuggestionDto
+            {
+                Name = x.Key,
+                Color = tagColors.TryGetValue(x.Key, out var color) ? color : null
+            }).ToList();
+            if (ordered.Count > 0) return ordered;
         }
-        var topTasks = scores.OrderByDescending(x => x.Score).Take(SuggestTagsSimilarTaskCount).Select(x => x.TaskId).ToHashSet();
-        var tagCounts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-        foreach (var tt in tagData.Where(x => topTasks.Contains(x.TaskId)))
-        {
-            tagCounts.TryGetValue(tt.Name, out var c);
-            tagCounts[tt.Name] = c + 1;
-        }
-        var ordered = tagCounts.OrderByDescending(x => x.Value).Take(topK).Select(x => new TagSuggestionDto
-        {
-            Name = x.Key,
-            Color = tagColors.TryGetValue(x.Key, out var color) ? color : null
-        }).ToList();
-        return ordered;
+
+        return new List<TagSuggestionDto>();
     }
 
     private const int SuggestDepsSimilarTaskCount = 15;
 
-    /// <summary>Suggest "depends on" tasks from similar tasks' dependency patterns. No key or no similar tasks → empty list.</summary>
     public async Task<List<TaskDependencySuggestionDto>> SuggestDependenciesAsync(
         int userId,
         int taskId,
@@ -446,8 +493,8 @@ public class TaskMemoryService
         var task = await _taskService.GetTaskByIdAsync(taskId, userId);
         if (task == null) return new List<TaskDependencySuggestionDto>();
 
-        var tagNames = task.Tags != null && task.Tags.Count > 0 ? string.Join(", ", task.Tags.Keys) : "";
-        var text = BuildEmbeddingText(task.Title, task.Description ?? "", (Priority)task.Priority, tagNames, task.Notes);
+        var text = BuildEmbeddingTextTitleAndDescriptionOnly(task.Title, task.Description ?? "");
+        if (string.IsNullOrWhiteSpace(text)) return new List<TaskDependencySuggestionDto>();
 
         var thresh = _options.DefaultThreshold;
         var tasks = await _context.Tasks
@@ -499,11 +546,12 @@ public class TaskMemoryService
         }
 
         var scores = new List<(int TaskId, double Score)>();
-        foreach (var (id, _) in taskItems)
+        foreach (var (id, candidateText) in taskItems)
         {
             var vec = _embeddingCache.Get(id);
             if (vec == null) continue;
             var score = CosineSimilarity(queryVec, vec);
+            if (ShareAnyMeaningfulWord(text, candidateText)) score += 0.15;
             if (score >= thresh) scores.Add((id, score));
         }
         var topTaskIds = scores.OrderByDescending(x => x.Score).Take(SuggestDepsSimilarTaskCount).Select(x => x.TaskId).ToHashSet();
@@ -520,7 +568,20 @@ public class TaskMemoryService
             depCounts.TryGetValue(depId, out var c);
             depCounts[depId] = c + 1;
         }
-        var suggestedIds = depCounts.OrderByDescending(x => x.Value).Take(topK).Select(x => x.Key).ToList();
+        var suggestedIdsFromPattern = depCounts.OrderByDescending(x => x.Value).Select(x => x.Key).Take(topK).ToList();
+        var similarOrdered = scores
+            .OrderByDescending(x => x.Score)
+            .Select(x => x.TaskId)
+            .Where(id => id != taskId && !existingDepIds.Contains(id))
+            .ToList();
+
+        var suggestedIds = new List<int>();
+        foreach (var id in suggestedIdsFromPattern)
+            if (!suggestedIds.Contains(id)) suggestedIds.Add(id);
+        foreach (var id in similarOrdered)
+            if (suggestedIds.Count >= topK) break;
+            else if (!suggestedIds.Contains(id)) suggestedIds.Add(id);
+
         if (suggestedIds.Count == 0) return new List<TaskDependencySuggestionDto>();
 
         var suggested = await _context.Tasks

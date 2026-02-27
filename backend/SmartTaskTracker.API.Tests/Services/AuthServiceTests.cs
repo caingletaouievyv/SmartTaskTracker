@@ -1,7 +1,7 @@
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
 using SmartTaskTracker.API.Data;
 using SmartTaskTracker.API.DTOs;
+using SmartTaskTracker.API.Helpers;
 using SmartTaskTracker.API.Services;
 using Xunit;
 
@@ -17,17 +17,16 @@ public class AuthServiceTests
         return new AppDbContext(options);
     }
 
-    private IConfiguration GetConfiguration()
+    private JwtOptions GetJwtOptions()
     {
-        var jwtKey = Environment.GetEnvironmentVariable("JWT_KEY") 
+        var key = Environment.GetEnvironmentVariable("JWT_KEY")
             ?? "TestJwtKeyForUnitTestingOnlyMinimum32Characters!";
-        var config = new Dictionary<string, string?>
+        return new JwtOptions
         {
-            { "Jwt:Key", jwtKey },
-            { "Jwt:Issuer", "SmartTaskTracker" },
-            { "Jwt:Audience", "SmartTaskTracker" }
+            Key = key,
+            Issuer = "SmartTaskTracker",
+            Audience = "SmartTaskTracker"
         };
-        return new ConfigurationBuilder().AddInMemoryCollection(config).Build();
     }
 
     [Fact]
@@ -35,8 +34,9 @@ public class AuthServiceTests
     {
         // Arrange
         using var context = GetContext();
-        var config = GetConfiguration();
-        var service = new AuthService(context, config);
+        var jwtOptions = GetJwtOptions();
+        var taskService = new TaskService(context);
+        var service = new AuthService(context, jwtOptions, taskService);
         var dto = new RegisterDto
         {
             Username = "testuser",
@@ -53,6 +53,8 @@ public class AuthServiceTests
         Assert.NotEmpty(result.RefreshToken);
         Assert.Equal("testuser", result.Username);
         Assert.True(result.UserId > 0);
+        var taskCount = await context.Tasks.CountAsync(t => t.UserId == result.UserId);
+        Assert.Equal(1, taskCount); // sample task created on register
     }
 
     [Fact]
@@ -60,8 +62,9 @@ public class AuthServiceTests
     {
         // Arrange
         using var context = GetContext();
-        var config = GetConfiguration();
-        var service = new AuthService(context, config);
+        var jwtOptions = GetJwtOptions();
+        var taskService = new TaskService(context);
+        var service = new AuthService(context, jwtOptions, taskService);
         var dto = new RegisterDto
         {
             Username = "testuser",
@@ -83,8 +86,9 @@ public class AuthServiceTests
     {
         // Arrange
         using var context = GetContext();
-        var config = GetConfiguration();
-        var service = new AuthService(context, config);
+        var jwtOptions = GetJwtOptions();
+        var taskService = new TaskService(context);
+        var service = new AuthService(context, jwtOptions, taskService);
         var registerDto = new RegisterDto
         {
             Username = "testuser",
@@ -114,8 +118,9 @@ public class AuthServiceTests
     {
         // Arrange
         using var context = GetContext();
-        var config = GetConfiguration();
-        var service = new AuthService(context, config);
+        var jwtOptions = GetJwtOptions();
+        var taskService = new TaskService(context);
+        var service = new AuthService(context, jwtOptions, taskService);
         var loginDto = new LoginDto
         {
             Username = "testuser",
@@ -134,8 +139,9 @@ public class AuthServiceTests
     {
         // Arrange
         using var context = GetContext();
-        var config = GetConfiguration();
-        var service = new AuthService(context, config);
+        var jwtOptions = GetJwtOptions();
+        var taskService = new TaskService(context);
+        var service = new AuthService(context, jwtOptions, taskService);
         var registerDto = new RegisterDto
         {
             Username = "testuser",
@@ -160,8 +166,9 @@ public class AuthServiceTests
     {
         // Arrange
         using var context = GetContext();
-        var config = GetConfiguration();
-        var service = new AuthService(context, config);
+        var jwtOptions = GetJwtOptions();
+        var taskService = new TaskService(context);
+        var service = new AuthService(context, jwtOptions, taskService);
 
         // Act
         var result = await service.RefreshTokenAsync("invalid-token");

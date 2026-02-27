@@ -350,6 +350,7 @@ function TaskModal({ show, onClose, onSubmit, task, isEditing, openedFromNatural
   const [showDependencies, setShowDependencies] = useState(false)
   const [suggestedDeps, setSuggestedDeps] = useState([])
   const [suggestedDepsLoading, setSuggestedDepsLoading] = useState(false)
+  const [suggestedDepsRequested, setSuggestedDepsRequested] = useState(false)
   
   const getDateTimeString = (dateValue) => {
     if (!dateValue) return ''
@@ -484,6 +485,7 @@ function TaskModal({ show, onClose, onSubmit, task, isEditing, openedFromNatural
       setTagInput('')
       setPendingSubtaskOrder(null)
       setSuggestedDeps([])
+      setSuggestedDepsRequested(false)
       // If editing existing task (has id), clear pending subtasks
       // If using template (no id), initialize with template subtasks
       if (task.id) {
@@ -1053,8 +1055,10 @@ function TaskModal({ show, onClose, onSubmit, task, isEditing, openedFromNatural
                           <button
                             type="button"
                             className="btn btn-sm btn-outline-secondary"
-                            disabled={suggestedDepsLoading}
+                            title={!(formData.title?.trim() || formData.description?.trim()) ? 'Add a title or description to get suggestions' : 'Suggest dependencies from similar tasks (title & description)'}
+                            disabled={suggestedDepsLoading || !(formData.title?.trim() || formData.description?.trim())}
                             onClick={async () => {
+                              setSuggestedDepsRequested(true)
                               setSuggestedDepsLoading(true)
                               try {
                                 const list = await taskService.getSuggestedDependencies(task.id, 5)
@@ -1082,6 +1086,9 @@ function TaskModal({ show, onClose, onSubmit, task, isEditing, openedFromNatural
                                   </button>
                                 ))}
                             </div>
+                          )}
+                          {suggestedDepsRequested && !suggestedDepsLoading && suggestedDeps.length === 0 && (
+                            <small className="text-muted d-block mt-1">No suggestions</small>
                           )}
                         </div>
                       )}

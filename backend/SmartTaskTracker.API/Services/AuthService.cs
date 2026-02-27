@@ -10,11 +10,13 @@ public class AuthService
 {
     private readonly AppDbContext _context;
     private readonly JwtOptions _jwtOptions;
+    private readonly TaskService _taskService;
 
-    public AuthService(AppDbContext context, JwtOptions jwtOptions)
+    public AuthService(AppDbContext context, JwtOptions jwtOptions, TaskService taskService)
     {
         _context = context;
         _jwtOptions = jwtOptions;
+        _taskService = taskService;
     }
 
     public async Task<AuthResponseDto?> RegisterAsync(RegisterDto dto)
@@ -31,6 +33,8 @@ public class AuthService
 
         _context.Users.Add(user);
         await _context.SaveChangesAsync();
+
+        await _taskService.CreateSampleTaskForUserAsync(user.Id);
 
         var token = JwtHelper.GenerateToken(user, _jwtOptions);
         var refreshToken = JwtHelper.GenerateRefreshToken();

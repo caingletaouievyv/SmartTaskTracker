@@ -76,4 +76,11 @@ public static class NaturalLanguageParseHelper
         if (string.IsNullOrEmpty(s)) return s;
         return char.ToUpperInvariant(s[0]) + (s.Length > 1 ? s[1..] : "");
     }
+
+    public static string TagToUniform(string s)
+    {
+        if (string.IsNullOrWhiteSpace(s)) return s.Trim();
+        var t = s.Trim();
+        return char.ToUpperInvariant(t[0]) + (t.Length > 1 ? t[1..].ToLowerInvariant() : "");
+    }
 }

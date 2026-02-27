@@ -27,6 +27,8 @@ Never commit `appsettings.Development.json` (in .gitignore).
 
 **Relations:** Users 1:N Tasks/TaskTemplates/Tags; Users 1:1 UserSettings; Tasks N:M Tags (TaskTags); Tasks N:M Tasks (TaskDependencies); Tasks 1:N TaskHistory; Tasks 1:N Tasks (ParentTaskId). TaskEmbeddings: TaskId (PK), UserId, EmbeddingJson; invalidated on task update/delete.
 
+**On register:** One sample task is created per user (all fields "Sample" prefixed; no dependencies so dependency suggestions have no seed data). See `TaskService.CreateSampleTaskForUserAsync`, called from `AuthService.RegisterAsync`.
+
 **Enums:** Priority 0–2 (Low/Medium/High), RecurrenceType 0–3 (None/Daily/Weekly/Monthly), TaskStatus 0–4 (Active/InProgress/OnHold/Completed/Cancelled).
 
 Full table/column list: see repo history (was `DATABASE_SCHEMA.md`).
@@ -61,6 +63,6 @@ Full table/column list: see repo history (was `DATABASE_SCHEMA.md`).
 
 **Current:** Semantic search + NL task + smart tagging + dependency suggestions implemented. "What's next?" = DB ranking only (not AI).
 
-**NL task:** `POST /api/tasks/from-natural-language` → `CreateTaskDto`. UI: **+ Add Task** (main = blank modal; sparkle = "Add from text"). LLM key: env or `TaskMemory:LlmApiKey`; no key = keyword fallback.
+**NL task:** `POST /api/tasks/from-natural-language` → `CreateTaskDto`. Tags normalized to first letter capital. UI: **+ Add Task** (main = blank modal; sparkle = "Add from text"). LLM key: env or `TaskMemory:LlmApiKey`; no key = keyword fallback.
 
-**Smart tagging** ✅ · **Dependency suggestions** ✅ (`GET /api/tasks/{id}/suggest-dependencies`). **Next:** [AI.md](AI.md).
+**Smart tagging** ✅ — full text first; if no results, tries each word. **Dependency suggestions** ✅ — query uses **title + description only** (same as smart tagging); from similar tasks' dependencies; results merge pattern-based (what similar tasks depend on) + similar-task candidates; shared meaningful word (weekend/saturday/sunday as one concept) boosts score. **Next:** [AI.md](AI.md).
