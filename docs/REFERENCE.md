@@ -138,7 +138,9 @@ Key backend files: `AuthService.cs`, `Helpers/JwtHelper.cs`, `Helpers/JwtOptions
 | 1 | Frontend | `frontend/src/hooks/useTasks.js` — `fetchTasks()` → taskService.getAll(params); create/update/delete → taskService.create/update/delete. |
 | 2 | Frontend | `frontend/src/services/taskService.js` — getAll → `GET /api/tasks`; create → `POST /api/tasks`; update → `PUT /api/tasks/{id}`; delete → `DELETE /api/tasks/{id}`. |
 | 3 | Backend | `Controllers/TasksController.cs` — GetTasks, Create, Update, Delete → `TaskService.GetTasksAsync`, `CreateTaskAsync`, `UpdateTaskAsync`, `DeleteTaskAsync`. |
-| 4 | Backend | `Services/TaskService.cs` — query/filter/sort in GetTasksAsync; TaskMapper for DTOs; tags via UpdateTaskTagsAsync, GetOrCreateTagAsync. |
+| 4 | Backend | `Services/TaskService.cs` — query/filter/sort in GetTasksAsync; TaskMapper for DTOs; tags via UpdateTaskTagsAsync, GetOrCreateTagAsync. **Delete:** DeleteTaskAsync removes TaskDependencies, TaskTags, TaskHistories, TaskEmbeddings (and subtasks if parent) before removing the task (schema uses Restrict). |
+
+**Delete UI:** Task and subtask deletion use the same app confirm dialog (`useDialog().confirm`): Tasks.jsx for task delete, TaskModal SubtaskList for subtask delete, with consistent title ("Delete Task") and confirm message pattern.
 
 Key backend files: `TaskService.cs`, `Helpers/TaskMapper.cs`, `Data/AppDbContext.cs`.
 
@@ -188,7 +190,7 @@ See also: **AI features** trace for semantic search (TaskMemoryService, embeddin
 
 | Area | Where | What to look at |
 |------|--------|------------------|
-| Recurring | TaskService | CreateNextRecurrenceAsync on complete; RecurrenceType, RecurrenceEndDate. |
+| Recurring | TaskService | CreateNextRecurrenceAsync on complete: next occurrence copies **all** fields (title, description, priority, file, notes, estimate, CustomOrder, tags) and **subtasks** (with their fields + tags); DueDate = next period; RecurrenceType, RecurrenceEndDate. Dependencies are not copied (new occurrence has no "depends on" by default). |
 | Templates | TaskTemplatesController, TaskTemplateService | Save as template → create from template. |
 | Duplicate | Frontend | Create task with same data (or backend duplicate endpoint if present). |
 | Calendar / Reminders / Analytics / Time / History | Respective controllers and services | Calendar, Reminders, Analytics, TaskService time/history. |

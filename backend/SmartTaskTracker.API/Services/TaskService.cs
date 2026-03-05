@@ -454,7 +454,6 @@ public class TaskService
         return TaskMapper.ToDto(task, new List<int>(), new List<string>(), new List<int>(), true, subtaskDtos, completedSubtasks, subtasks.Count, tags);
     }
 
-    /// <summary>Creates a single sample task for a new user. All fields use "Sample" prefix; no dependencies (so dependency suggestions stay empty for new users).</summary>
     public async Task<TaskDto> CreateSampleTaskForUserAsync(int userId)
     {
         var dto = new CreateTaskDto
@@ -579,10 +578,10 @@ public class TaskService
     private async TaskAsync CreateNextRecurrenceAsync(TaskModel completedTask, int userId)
     {
         if (completedTask.RecurrenceType == RecurrenceType.None) return;
-        
+
         var nextDueDate = completedTask.DueDate ?? DateTime.UtcNow;
         var recurrenceEnd = completedTask.RecurrenceEndDate ?? DateTime.UtcNow.AddYears(1);
-        
+
         nextDueDate = completedTask.RecurrenceType switch
         {
             RecurrenceType.Daily => nextDueDate.AddDays(1),
@@ -593,18 +592,15 @@ public class TaskService
 
         if (nextDueDate > recurrenceEnd) return;
 
-        // Check if a recurring task with the same title and due date already exists
-        // This prevents duplicates when a task is completed, uncompleted, and completed again
         var existingTask = await _context.Tasks
-            .FirstOrDefaultAsync(t => 
-                t.UserId == userId && 
-                t.Title == completedTask.Title && 
-                t.DueDate.HasValue && 
+            .FirstOrDefaultAsync(t =>
+                t.UserId == userId &&
+                t.Title == completedTask.Title &&
+                t.DueDate.HasValue &&
                 t.DueDate.Value.Date == nextDueDate.Date &&
                 t.RecurrenceType == completedTask.RecurrenceType &&
                 !t.IsArchived);
 
-        // If a task already exists for this recurrence period, don't create a duplicate
         if (existingTask != null) return;
 
         var nextTask = new TaskModel
@@ -617,8 +613,11 @@ public class TaskService
             FileName = completedTask.FileName,
             RecurrenceType = completedTask.RecurrenceType,
             RecurrenceEndDate = completedTask.RecurrenceEndDate,
-            // Don't set ParentTaskId for recurring tasks - they should be top-level tasks
-            // Only subtasks should have ParentTaskId set
+            Notes = completedTask.Notes,
+            EstimatedTimeMinutes = completedTask.EstimatedTimeMinutes,
+            TimeSpentSeconds = 0,
+            IsArchived = false,
+            CustomOrder = completedTask.CustomOrder,
             ParentTaskId = null,
             UserId = userId,
             Status = TaskStatus.Active,
@@ -626,6 +625,64 @@ public class TaskService
         };
 
         _context.Tasks.Add(nextTask);
+        await _context.SaveChangesAsync();
+
+        var tagNames = await _context.TaskTags
+            .Where(tt => tt.TaskId == completedTask.Id)
+            .Select(tt => tt.Tag.Name)
+            .ToListAsync();
+        if (tagNames.Count > 0)
+            await UpdateTaskTagsAsync(nextTask, tagNames, userId);
+
+        var completedSubtasks = await _context.Tasks
+            .Where(t => t.ParentTaskId == completedTask.Id && t.UserId == userId)
+            .OrderBy(t => t.CustomOrder ?? int.MaxValue)
+            .ThenBy(t => t.Id)
+            .ToListAsync();
+
+        if (completedSubtasks.Count == 0) return;
+
+        var subtaskTagNamesByIndex = new List<List<string>>();
+        foreach (var st in completedSubtasks)
+        {
+            var names = await _context.TaskTags
+                .Where(tt => tt.TaskId == st.Id)
+                .Select(tt => tt.Tag.Name)
+                .ToListAsync();
+            subtaskTagNamesByIndex.Add(names);
+        }
+
+        var newSubtasks = new List<TaskModel>();
+        foreach (var st in completedSubtasks)
+        {
+            var newSt = new TaskModel
+            {
+                Title = st.Title,
+                Description = st.Description,
+                DueDate = st.DueDate,
+                Priority = st.Priority,
+                FileUrl = st.FileUrl,
+                FileName = st.FileName,
+                Notes = st.Notes,
+                EstimatedTimeMinutes = st.EstimatedTimeMinutes,
+                TimeSpentSeconds = 0,
+                CustomOrder = st.CustomOrder,
+                ParentTaskId = nextTask.Id,
+                UserId = userId,
+                Status = TaskStatus.Active,
+                IsCompleted = false
+            };
+            newSubtasks.Add(newSt);
+            _context.Tasks.Add(newSt);
+        }
+
+        await _context.SaveChangesAsync();
+
+        for (var i = 0; i < newSubtasks.Count; i++)
+        {
+            if (subtaskTagNamesByIndex[i].Count > 0)
+                await UpdateTaskTagsAsync(newSubtasks[i], subtaskTagNamesByIndex[i], userId);
+        }
     }
 
     public async Task<bool> DeleteTaskAsync(int id, int userId)
@@ -634,6 +691,37 @@ public class TaskService
         if (task == null) return false;
 
         await LogHistoryAsync(id, HistoryAction.Deleted, userId, $"Deleted \"{task.Title}\"");
+
+        var taskIdsToDelete = new List<int> { id };
+
+        var subtasks = await _context.Tasks
+            .Where(t => t.ParentTaskId == id && t.UserId == userId)
+            .ToListAsync();
+        if (subtasks.Count > 0)
+            taskIdsToDelete.AddRange(subtasks.Select(t => t.Id));
+
+        var dependencies = await _context.TaskDependencies
+            .Where(d => taskIdsToDelete.Contains(d.TaskId) || taskIdsToDelete.Contains(d.DependsOnTaskId))
+            .ToListAsync();
+        _context.TaskDependencies.RemoveRange(dependencies);
+
+        var taskTags = await _context.TaskTags
+            .Where(tt => taskIdsToDelete.Contains(tt.TaskId))
+            .ToListAsync();
+        _context.TaskTags.RemoveRange(taskTags);
+
+        var histories = await _context.TaskHistories
+            .Where(h => taskIdsToDelete.Contains(h.TaskId))
+            .ToListAsync();
+        _context.TaskHistories.RemoveRange(histories);
+
+        var embeddings = await _context.TaskEmbeddings
+            .Where(te => taskIdsToDelete.Contains(te.TaskId))
+            .ToListAsync();
+        _context.TaskEmbeddings.RemoveRange(embeddings);
+
+        if (subtasks.Count > 0)
+            _context.Tasks.RemoveRange(subtasks);
         _context.Tasks.Remove(task);
         await _context.SaveChangesAsync();
         return true;

@@ -6,7 +6,7 @@ import { tagService } from '../services/tagService'
 import Dialog from './Dialog'
 import TaskHistory from './TaskHistory'
 
-function SubtaskList({ subtasks, onDeleteSubtask, parentTaskId, onReorderSubtasks, onOrderChange, onToggleComplete, onEditSubtask }) {
+function SubtaskList({ subtasks, onDeleteSubtask, parentTaskId, onReorderSubtasks, onOrderChange, onToggleComplete, onEditSubtask, confirmDialog, alertDialog }) {
   const [draggedSubtaskId, setDraggedSubtaskId] = useState(null)
   const [dragOverIndex, setDragOverIndex] = useState(null)
   const [localSubtasks, setLocalSubtasks] = useState(subtasks)
@@ -225,16 +225,18 @@ function SubtaskList({ subtasks, onDeleteSubtask, parentTaskId, onReorderSubtask
                 onClick={async (e) => {
                   e.stopPropagation()
                   e.preventDefault()
-                  const confirmMessage = parentTaskId 
-                    ? `Delete subtask "${subtask.title}"?`
-                    : `Remove subtask "${subtask.title}"?`
-                  if (await confirm(confirmMessage, 'Delete Subtask')) {
+                  const confirmMessage = 'Are you sure you want to delete this subtask?'
+                  const confirmTitle = 'Delete Task'
+                  const ok = confirmDialog
+                    ? await confirmDialog(confirmMessage, confirmTitle)
+                    : window.confirm(`${confirmTitle}\n\n${confirmMessage}`)
+                  if (ok) {
                     try {
-                      if (onDeleteSubtask) {
-                        await onDeleteSubtask(parentTaskId, subtask.id)
-                      }
+                      await onDeleteSubtask(parentTaskId, subtask.id)
                     } catch (err) {
-                      await alert(err.message || err.response?.data?.message || 'Failed to delete subtask', 'Error')
+                      const msg = err.message || err.response?.data?.message || 'Failed to delete subtask'
+                      if (alertDialog) await alertDialog(msg, 'Error')
+                      else window.alert(`Error: ${msg}`)
                     }
                   }
                 }}
@@ -751,6 +753,8 @@ function TaskModal({ show, onClose, onSubmit, task, isEditing, openedFromNatural
                       }}
                       onToggleComplete={onToggleCompleteSubtask}
                       onEditSubtask={onEditSubtask}
+                      confirmDialog={confirm}
+                      alertDialog={alert}
                     />
                   )}
                   {!isEditing && pendingSubtasks.length > 0 && (
@@ -775,6 +779,8 @@ function TaskModal({ show, onClose, onSubmit, task, isEditing, openedFromNatural
                       }}
                       onToggleComplete={null}
                       onEditSubtask={null}
+                      confirmDialog={confirm}
+                      alertDialog={alert}
                     />
                   )}
                 </div>

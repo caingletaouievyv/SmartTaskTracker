@@ -130,7 +130,7 @@ public class NaturalLanguageTaskService
                 Status = TaskStatus.Active
             };
 
-            // Merge keyword fallback so any LLM-missed field is filled (ia.md: prefill all fields)
+            // Merge keyword fallback so any LLM-missed field is filled (AI.md: prefill all fields)
             var fallback = FallbackParse(text);
             if (create.DueDate == null && fallback.DueDate != null) create.DueDate = fallback.DueDate;
             if (create.DueDate != null && fallback.DueDate != null && create.DueDate.Value.Date < DateTime.UtcNow.Date) create.DueDate = fallback.DueDate; // LLM returned past date; use fallback

@@ -70,7 +70,7 @@ Select 2–3 tasks (checkbox → blue border) → toolbar "N task(s) selected" �
 
 ### Test 7: Recurring, templates, duplicate
 
-- **Recurring:** Create task with Repeat (Daily/Weekly/Monthly) + optional end date → badge → complete → next occurrence created.
+- **Recurring:** Create task with Repeat (Daily/Weekly/Monthly) + optional end date → badge → complete → next occurrence created (same fields + tags + subtasks; dependencies not copied). See [REFERENCE.md](REFERENCE.md) Extras.
 - **Templates:** Fill form → Save as template (📋) → name. Templates (📋) → select → form pre-filled → Create.
 - **Duplicate:** Open task → Duplicate (📋) → new task "(Copy)", same fields except completion; independent.
 
