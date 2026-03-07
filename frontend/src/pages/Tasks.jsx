@@ -171,6 +171,7 @@ function Tasks() {
   const cardRefs = useRef({})
   const editFromModalRef = useRef(false) // true when subtask was opened from inside TaskModal
   const [highlightedTaskId, setHighlightedTaskId] = useState(null)
+  const [showBackToTop, setShowBackToTop] = useState(false)
   const { settings, loading: settingsLoading } = useSettings()
 
   const scrollToTaskThenEdit = (taskOrId) => {
@@ -325,6 +326,12 @@ function Tasks() {
     }
     window.addEventListener('server-back', onServerBack)
     return () => window.removeEventListener('server-back', onServerBack)
+  }, [])
+
+  useEffect(() => {
+    const onScroll = () => setShowBackToTop(window.scrollY > 400)
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => window.removeEventListener('scroll', onScroll)
   }, [])
 
   useEffect(() => {
@@ -1828,7 +1835,16 @@ function Tasks() {
           </div>
         )}
 
-        <div className="d-flex flex-wrap gap-2 mb-3">
+        <div className="d-flex flex-wrap gap-2 mb-3 align-items-center">
+          <button
+            className={`btn btn-sm ${showArchived ? 'btn-primary' : 'btn-outline-primary'}`}
+            onClick={() => setShowArchived(!showArchived)}
+            title={showArchived ? 'Hide archived tasks' : 'Show archived tasks'}
+          >
+            {showArchived ? '📦 Hide Archived' : '📦 Show Archived'}
+          </button>
+          <span className="text-muted d-none d-md-inline" aria-hidden>|</span>
+          <span className="d-block d-md-none w-100" style={{ height: 0 }} aria-hidden />
           <button
             className={`btn btn-sm ${quickFilter === 'today' ? 'btn-primary' : 'btn-outline-primary'}`}
             onClick={() => handleQuickFilter('today')}
@@ -1847,13 +1863,36 @@ function Tasks() {
           >
             🔴 High Priority
           </button>
-          <button
-            className={`btn btn-sm ${showArchived ? 'btn-primary' : 'btn-outline-primary'}`}
-            onClick={() => setShowArchived(!showArchived)}
-            title={showArchived ? 'Hide archived tasks' : 'Show archived tasks'}
+          <span className="text-muted d-none d-md-inline" aria-hidden>|</span>
+          <span className="d-block d-md-none w-100" style={{ height: 0 }} aria-hidden />
+          <select
+            className="form-select form-select-sm"
+            style={{ width: 'auto', minWidth: '120px' }}
+            value={status}
+            onChange={(e) => setStatus(e.target.value)}
+            aria-label="Filter by status"
           >
-            {showArchived ? '📦 Hide Archived' : '📦 Show Archived'}
-          </button>
+            <option value="">All Tasks</option>
+            <option value="active">Active</option>
+            <option value="inprogress">In Progress</option>
+            <option value="onhold">On Hold</option>
+            <option value="completed">Completed</option>
+            <option value="cancelled">Cancelled</option>
+          </select>
+          <select
+            className="form-select form-select-sm"
+            style={{ width: 'auto', minWidth: '140px' }}
+            value={effectiveSortBy}
+            onChange={(e) => setSortBy(e.target.value)}
+            aria-label="Sort by"
+          >
+            <option value="date">Sort by Recent</option>
+            <option value="priority">Sort by Priority</option>
+            <option value="title">Sort by Title</option>
+            <option value="dueDate">Sort by Due Date</option>
+            <option value="custom">Sort by Custom</option>
+          </select>
+          <span className="text-muted d-none d-md-inline" aria-hidden>|</span>
           {filterPresets.length > 0 && (
             <select
               className="form-select form-select-sm"
@@ -1863,15 +1902,14 @@ function Tasks() {
                 const value = e.target.value
                 setSelectedPresetId(value)
                 if (!value) return
-
                 const preset = filterPresets.find(p => String(p.id) === value)
                 if (!preset) return
-
                 setSearch(preset.search || '')
                 setStatus(preset.status || '')
                 setSortBy(preset.sortBy || '')
                 setQuickFilter('')
               }}
+              aria-label="Filter presets"
             >
               <option value="">📌 Filter Presets...</option>
               {filterPresets.map(preset => (
@@ -1889,7 +1927,7 @@ function Tasks() {
             (sortBy && sortBy !== (settings?.defaultSortBy || 'date'))
           ) && (
             <button
-              className="btn btn-sm btn-outline-primary ms-auto"
+              className="btn btn-sm btn-outline-primary"
               onClick={() => {
                 setQuickFilter('')
                 setSearch('')
@@ -1901,10 +1939,29 @@ function Tasks() {
               Clear Filter
             </button>
           )}
+          <button
+            className="btn btn-outline-primary ms-auto"
+            style={{ height: '38px', minWidth: '100px' }}
+            onClick={async () => {
+              setSuggestionsLoading(true)
+              setShowSuggestions(true)
+              try {
+                const data = await taskService.getAiSuggestions()
+                setSuggestions(Array.isArray(data) ? data : [])
+              } catch (err) {
+                setSuggestions([])
+              } finally {
+                setSuggestionsLoading(false)
+              }
+            }}
+            title="Suggested next (priority, due date)"
+          >
+            What&apos;s next?
+          </button>
         </div>
 
-        <div className="row g-2 mb-3 align-items-center">
-          <div className="col-12 col-md-4">
+        <div className="d-flex flex-wrap gap-2 mb-3 align-items-center">
+          <div className="flex-grow-1 min-w-0" style={{ minWidth: '120px' }}>
             <div className="input-group">
               <span className="input-group-text bg-transparent" aria-hidden title="Semantic search (meaning + keyword)">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden><path d="M12 0l2.5 7.5L22 10l-7.5 2.5L12 20l-2.5-7.5L2 10l7.5-2.5L12 0z"/></svg>
@@ -1920,38 +1977,7 @@ function Tasks() {
               />
             </div>
           </div>
-          <div className="col-6 col-md-4">
-            <select
-              className="form-select"
-              value={status}
-              onChange={(e) => setStatus(e.target.value)}
-            >
-              <option value="">All Tasks</option>
-              <option value="active">Active</option>
-              <option value="inprogress">In Progress</option>
-              <option value="onhold">On Hold</option>
-              <option value="completed">Completed</option>
-              <option value="cancelled">Cancelled</option>
-            </select>
-          </div>
-          <div className="col-6 col-md-4">
-            <select
-              className="form-select"
-              value={effectiveSortBy}
-              onChange={(e) => setSortBy(e.target.value)}
-            >
-              <option value="date">Sort by Recent</option>
-              <option value="priority">Sort by Priority</option>
-              <option value="title">Sort by Title</option>
-              <option value="dueDate">Sort by Due Date</option>
-              <option value="custom">Sort by Custom</option>
-            </select>
-          </div>
-        </div>
-        <div className="row g-2 mb-3 align-items-center">
-          <div className="col-12 d-flex justify-content-between gap-2 flex-wrap align-items-center">
-            <h2 className="mb-0">My Tasks</h2>
-            <div className="d-flex gap-2 flex-wrap align-items-center">
+          <div className="d-flex gap-2 flex-wrap align-items-center">
             {tasks.length > 0 && (
               <>
                 {selectedTasks.size === 0 && (
@@ -1976,25 +2002,6 @@ function Tasks() {
                 )}
               </>
             )}
-            <button
-              className="btn btn-outline-secondary"
-              style={{ height: '38px' }}
-              onClick={async () => {
-                setSuggestionsLoading(true)
-                setShowSuggestions(true)
-                try {
-                  const data = await taskService.getAiSuggestions()
-                  setSuggestions(Array.isArray(data) ? data : [])
-                } catch (err) {
-                  setSuggestions([])
-                } finally {
-                  setSuggestionsLoading(false)
-                }
-              }}
-              title="Suggested next (priority, due date)"
-            >
-              What&apos;s next?
-            </button>
             <div className="dropdown" ref={addDropdownRef}>
               <div className="btn-group">
                 <button
@@ -2041,7 +2048,6 @@ function Tasks() {
                   {nlLoading ? 'Parsing…' : 'Add from text'}
                 </button>
               </div>
-            </div>
             </div>
           </div>
         </div>
@@ -2235,6 +2241,19 @@ function Tasks() {
             </div>
           </div>
         </div>
+      )}
+
+      {showBackToTop && (
+        <button
+          type="button"
+          className="btn btn-outline-primary position-fixed bottom-0 end-0 m-3 rounded-circle shadow-sm"
+          style={{ width: '48px', height: '48px', zIndex: 1030 }}
+          onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+          title="Back to top"
+          aria-label="Back to top"
+        >
+          <span style={{ fontSize: '1.25rem' }} aria-hidden>↑</span>
+        </button>
       )}
 
       <Dialog {...dialog} />

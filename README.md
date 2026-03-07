@@ -24,7 +24,7 @@ Full-stack task app — React + ASP.NET Core 9, JWT auth, SQLite/PostgreSQL. Run
 | **Auth** | ![Auth](docs/demo/auth.gif) | Register (e.g. `demo` / `demo@example.com` / `password123`) → Login → land on Tasks. One sample task is created on register (all fields "Sample" prefixed; no dependencies). |
 | **CRUD** | ![CRUD](docs/demo/crud.gif) | Add task (all fields: title, description, due, priority, status, tags, notes, recurrence, file, estimate, subtask, dependency). Edit once → change several fields → Save. Toggle complete → Delete. |
 | **Search** | ![Search](docs/demo/search.gif) | Type in search box → results (keyword fallback when no semantic match). |
-| **Filters & sort** | ![Filters](docs/demo/filters.gif) | Today / This Week / High Priority; status filter; sort. Settings → Filter Preset → create → apply on Tasks. |
+| **Filters & sort** | ![Filters](docs/demo/filters.gif) | Top row: search (left), Select All / + Add Task (right). Filter row: Show Archived | Today / This Week / High Priority | All Tasks, Sort by | Filter Preset, What's next?, Clear Filter. Settings → Filter Preset → create → apply on Tasks. |
 | **Bulk** | ![Bulk](docs/demo/bulk.gif) | Select 2 tasks → Change Status → Completed. Select → Delete Selected. Select All → Clear. |
 | **What's next?** | ![What's next](docs/demo/whats-next.gif) | Click "What's next?" → panel with suggested tasks + reason (DB ranking) → click title to open edit modal. |
 | **Export / Import** | ![Export Import](docs/demo/export-import.gif) | Export CSV (with/without selection). Import CSV (sample file). |

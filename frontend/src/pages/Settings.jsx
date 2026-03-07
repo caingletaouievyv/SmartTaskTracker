@@ -64,6 +64,7 @@ function Settings() {
   const [presetSearch, setPresetSearch] = useState('')
   const [presetStatus, setPresetStatus] = useState('')
   const [presetSortBy, setPresetSortBy] = useState('')
+  const [showBackToTop, setShowBackToTop] = useState(false)
 
   const loadSettings = async () => {
     try {
@@ -92,6 +93,12 @@ function Settings() {
     const onServerBack = () => loadSettings()
     window.addEventListener('server-back', onServerBack)
     return () => window.removeEventListener('server-back', onServerBack)
+  }, [])
+
+  useEffect(() => {
+    const onScroll = () => setShowBackToTop(window.scrollY > 400)
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => window.removeEventListener('scroll', onScroll)
   }, [])
 
   const handleSave = async () => {
@@ -815,6 +822,19 @@ function Settings() {
             Reset to Defaults
           </button>
         </div>
+
+        {showBackToTop && (
+          <button
+            type="button"
+            className="btn btn-outline-primary position-fixed bottom-0 end-0 m-3 rounded-circle shadow-sm"
+            style={{ width: '48px', height: '48px', zIndex: 1030 }}
+            onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+            title="Back to top"
+            aria-label="Back to top"
+          >
+            <span style={{ fontSize: '1.25rem' }} aria-hidden>↑</span>
+          </button>
+        )}
 
         <Dialog {...dialog} />
       </div>

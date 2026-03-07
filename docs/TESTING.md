@@ -48,10 +48,13 @@ Validation: empty title → disabled; title >200 → error.
 
 ### Test 4: Filters & sort
 
-- Quick filters: Today, This Week, High Priority → filter; click again → clear. Combine with search.
+- Quick filters: **Show Archived** first, then Today, This Week, High Priority; Status and Sort dropdowns; **Filter Preset** and **Clear Filter** beside Sort by. **Desktop:** one line; **mobile:** wraps. Combine with search.
+- **Top row:** Search (left), Select All / + Add Task (right). No "My Tasks" heading.
+- Filter row: Sort by | Filter Preset, What's next?, Clear Filter (when active).
+- Search: top row left; combine with filters.
 - Status filter → filter by Active/InProgress/OnHold/Completed/Cancelled.
 - Sort: change sort → order updates. Settings → default sort + "remember" → refresh behaves accordingly.
-- Presets: Settings → Filter Presets → create → Tasks page → select preset → filters applied.
+- Presets: Settings → Filter Presets → create → Tasks page → select preset (in filter row, beside Sort by) → filters applied.
 
 ---
 
@@ -95,6 +98,7 @@ Select 2–3 tasks (checkbox → blue border) → toolbar "N task(s) selected" �
 ### Test 10: UI & shortcuts
 
 - **Theme:** Toggle dark/light (🌙/☀️) → persists. Settings → accent color → applies and persists.
+- **Settings:** Long page; scroll down to Filter Presets → Back to top (↑) button appears → click to scroll to top. **Tasks:** same Back to top (↑) when scrolled.
 - **Responsive:** DevTools device mode @375px → stacked buttons, full-width inputs, modal fits, touch targets; all features work.
 - **Shortcuts:** `n` → new task; `s` or `/` → focus search (not while typing). Settings → change shortcuts → test.
 - **Notifications:** Allow when prompted; task due soon / overdue → browser notification; Settings → toggle on/off.

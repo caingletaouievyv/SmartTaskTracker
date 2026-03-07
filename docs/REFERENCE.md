@@ -199,5 +199,5 @@ See also: **AI features** trace for semantic search (TaskMemoryService, embeddin
 
 | Step | Where | What to look at |
 |------|--------|------------------|
-| 1 | Frontend | ThemeContext (dark mode); Settings → accent; keyboard shortcuts (e.g. `n`, `s`, `/`); notifications; Archive / Show Archived in Tasks. |
+| 1 | Frontend | ThemeContext (dark mode); Settings → accent; keyboard shortcuts (e.g. `n`, `s`, `/`); notifications; Archive / Show Archived in Tasks. **Tasks page:** No "My Tasks" heading. **Top row:** search (left); Select All, + Add Task (right). **Filter row:** Show Archived | Today / This Week / High Priority | All Tasks, Sort by | Filter Preset, What's next?, Clear Filter. **Back to top:** Settings and Tasks show floating ↑ when scrolled. |
 | 2 | Backend | UserSettings (theme, accent); archive → task.IsArchived, TaskService filter includeArchived. |
