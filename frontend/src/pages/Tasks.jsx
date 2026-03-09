@@ -1892,7 +1892,14 @@ function Tasks() {
             <option value="dueDate">Sort by Due Date</option>
             <option value="custom">Sort by Custom</option>
           </select>
-          <span className="text-muted d-none d-md-inline" aria-hidden>|</span>
+          {(filterPresets.length > 0 ||
+            quickFilter ||
+            search ||
+            status ||
+            selectedPresetId ||
+            (sortBy && sortBy !== (settings?.defaultSortBy || 'date'))) && (
+            <span className="text-muted d-none d-md-inline" aria-hidden>|</span>
+          )}
           {filterPresets.length > 0 && (
             <select
               className="form-select form-select-sm"
