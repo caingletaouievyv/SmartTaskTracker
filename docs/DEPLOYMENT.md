@@ -9,10 +9,10 @@ Deploy the SmartTaskTracker **frontend** to Netlify and **backend** to Render us
 ## Quick reference (for AI / automation)
 
 - **Stack:** Frontend = React + Vite (Netlify). Backend = ASP.NET Core 9 (Render, Docker). DB = PostgreSQL (Render free).
-- **Backend (Render):** Build/run via **Docker** (`backend/SmartTaskTracker.API/Dockerfile`). **Root Directory** = `backend/SmartTaskTracker.API`. **Environment** = Docker. Leave build/start command empty. **Env vars (set in Render dashboard, not from render.yaml for manual deploy):** `JWT_KEY` (required, min 32 chars), `FRONTEND_URL` = Netlify origin with `https://` (no trailing slash; required for CORS). `DATABASE_URL` auto-set when PostgreSQL is linked.
+- **Backend (Render):** Build/run via **Docker** (`backend/SmartTaskTracker.API/Dockerfile`). **Root Directory** = `backend/SmartTaskTracker.API`. **Environment** = Docker. Leave build/start command empty. **Env vars (set in Render dashboard, not from render.yaml for manual deploy):** `JWT_KEY` (required, min 32 chars), `FRONTEND_URL` = Netlify origin with `https://` (no trailing slash; required for CORS). `DATABASE_URL` auto-set when PostgreSQL is linked (URI `postgresql://...` is converted to Npgsql format in `PostgresConnectionString.FromDatabaseUrl`).
 - **Frontend (Netlify):** **Base directory** = `frontend`, **publish** = `dist`. **Env var:** `VITE_API_URL` = Render API URL (e.g. `https://xxx.onrender.com/api`).
 - **CORS:** Backend allows only origins from `FRONTEND_URL` (and localhost). `FRONTEND_URL` must match Netlify URL exactly (e.g. `https://smarttasktracker.netlify.app`). Redeploy backend after setting.
-- **Optional:** `SEED_DATABASE=true` on Render resets the seed user and runs `DbSeeder` on every startup; set to `false` when done so it stops.
+- **`SEED_DATABASE`:** `false` = never run the dev seeder. `true` = run `DbSeeder` on every startup (clears user `testuser` and related rows, then reseeds). Unset: **Development** seeds by default; **Production** seeds only if `SeedDatabase` is `true` in configuration. **Persistence (required in Production):** Link **PostgreSQL** to the web service so **`DATABASE_URL` is set**. Production **does not** start with SQLite: without `DATABASE_URL` the process exits with a clear error (SQLite inside Docker is ephemeral and would wipe accounts on restart).
 
 ---
 

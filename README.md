@@ -147,7 +147,7 @@ frontend/
 ### Backend (`backend/SmartTaskTracker.API/`)
 ```
 backend/SmartTaskTracker.API/
-  Program.cs               Entry + DI + CORS (FRONTEND_URL env) + DB init; seed if Development or SEED_DATABASE=true
+  Program.cs               Entry + DI + CORS (FRONTEND_URL env) + DB init; seed rules in Program.cs / deployment.md
   Dockerfile               Build/run for Render (Docker)
   appsettings.json         Config (DB only; JWT in appsettings.Development.json or env)
   SmartTaskTracker.API.csproj
@@ -220,13 +220,13 @@ Tasks: CRUD, priorities, tags, status, due dates, recurring, templates, subtasks
 
 ## Deploy
 
-**Backend (Render):** Docker build from `backend/SmartTaskTracker.API` (see `Dockerfile`). Root Directory = `backend/SmartTaskTracker.API`, Environment = Docker. **Set in Render dashboard (Environment tab):** `JWT_KEY` (required, min 32 chars), `FRONTEND_URL` = your Netlify URL with `https://` (no trailing slash; required for CORS). PostgreSQL via Render free tier; `DATABASE_URL` auto-set if DB linked.
+**Backend (Render):** Docker build from `backend/SmartTaskTracker.API` (see `Dockerfile`). Root Directory = `backend/SmartTaskTracker.API`, Environment = Docker. **Set in Render dashboard (Environment tab):** `JWT_KEY` (required, min 32 chars), `FRONTEND_URL` = your Netlify URL with `https://` (no trailing slash; required for CORS). **Link PostgreSQL** to the web service so **`DATABASE_URL` is set** (required in Production; otherwise the API will not start—SQLite inside the container would lose data on every restart).
 
 **Frontend (Netlify):** Base directory = `frontend`, publish = `dist`. **Set in Netlify:** `VITE_API_URL` = your Render API URL (e.g. `https://your-api.onrender.com/api`).
 
 **CORS:** Backend allows only origins from `FRONTEND_URL` (and localhost). `FRONTEND_URL` must match the Netlify origin exactly (e.g. `https://smarttasktracker.netlify.app`).
 
-**Optional:** `SEED_DATABASE=true` on Render resets the seed user and runs `DbSeeder` every startup; set to `false` when done — see [docs/deployment.md](docs/deployment.md).
+**Optional:** `SEED_DATABASE` — see [docs/deployment.md](docs/deployment.md) (Production needs PostgreSQL / `DATABASE_URL`; `false` turns off seeding entirely).
 
 Full steps: [docs/deployment.md](docs/deployment.md)
 

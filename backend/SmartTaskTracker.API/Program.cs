@@ -20,14 +20,20 @@ var databaseUrl = Environment.GetEnvironmentVariable("DATABASE_URL");
 
 if (!string.IsNullOrEmpty(databaseUrl))
 {
-    // Production: PostgreSQL from Render
-    // DATABASE_URL format: postgresql://user:password@host:port/database
+    // Render DATABASE_URL is a URI (postgresql://...); Npgsql needs keyword=value (see PostgresConnectionString).
+    var npgsqlConnection = PostgresConnectionString.FromDatabaseUrl(databaseUrl);
     builder.Services.AddDbContext<AppDbContext>(options =>
-        options.UseNpgsql(databaseUrl));
+        options.UseNpgsql(npgsqlConnection));
 }
 else if (!string.IsNullOrEmpty(connectionString))
 {
-    // Development: SQLite
+    // SQLite (local dev). In Production, a file inside Docker is ephemeral — accounts disappear on restart.
+    if (builder.Environment.IsProduction())
+    {
+        throw new InvalidOperationException(
+            "Production requires DATABASE_URL (PostgreSQL). Link a managed database to the web service on Render (or set DATABASE_URL). SQLite DefaultConnection is not supported in Production.");
+    }
+
     builder.Services.AddDbContext<AppDbContext>(options =>
         options.UseSqlite(connectionString));
 }
@@ -103,10 +109,12 @@ app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
 
-// Ensure database is created and seeded
+// Ensure database is created and seeded (ia.md: explicit, configurable)
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    var startupLogger = scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("Startup");
+
     if (db.Database.GetMigrations().Any())
     {
         db.Database.Migrate();
@@ -115,10 +123,24 @@ using (var scope = app.Services.CreateScope())
     {
         db.Database.EnsureCreated();
     }
+
+    if (!app.Environment.IsProduction()
+        && db.Database.ProviderName?.Contains("Sqlite", StringComparison.OrdinalIgnoreCase) == true)
+    {
+        startupLogger.LogInformation("Using SQLite; data persists while the database file remains on disk.");
+    }
+
+    // SEED_DATABASE=false → never seed. SEED_DATABASE=true → always seed. Unset: Development defaults on; Production/Staging only if SeedDatabase: true in config.
+    var seedEnv = Environment.GetEnvironmentVariable("SEED_DATABASE");
+    var seedExplicitlyOff = string.Equals(seedEnv, "false", StringComparison.OrdinalIgnoreCase);
+    var seedExplicitlyOn = string.Equals(seedEnv, "true", StringComparison.OrdinalIgnoreCase);
     var seedFromConfig = app.Configuration.GetValue<bool?>("SeedDatabase");
-    var seedFromEnv = string.Equals(Environment.GetEnvironmentVariable("SEED_DATABASE"), "true", StringComparison.OrdinalIgnoreCase);
-    var seedDb = seedFromConfig ?? (app.Environment.IsDevelopment() || seedFromEnv);
-    if (seedDb)
+    var runSeed = !seedExplicitlyOff && (
+        seedExplicitlyOn
+        || (app.Environment.IsDevelopment() && (seedFromConfig ?? true))
+        || (!app.Environment.IsDevelopment() && seedFromConfig == true));
+
+    if (runSeed)
     {
         DbSeeder.ClearSeedData(db);
         DbSeeder.SeedData(db);

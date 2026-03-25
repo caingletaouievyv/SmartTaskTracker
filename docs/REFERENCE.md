@@ -51,7 +51,7 @@ Full table/column list: see repo history (was `DATABASE_SCHEMA.md`).
 
 ## Deploy (Render + Netlify)
 
-**Backend (Render):** Docker (`backend/SmartTaskTracker.API/Dockerfile`). Root Dir = `backend/SmartTaskTracker.API`, Environment = Docker. **Env in dashboard:** `JWT_KEY` (required), `FRONTEND_URL` = Netlify URL with `https://` (required for CORS). DB = PostgreSQL (Render free); `DATABASE_URL` auto when linked. Optional: `SEED_DATABASE=true` to reset seed user and run seed every startup; `false` to stop.
+**Backend (Render):** Docker (`backend/SmartTaskTracker.API/Dockerfile`). Root Dir = `backend/SmartTaskTracker.API`, Environment = Docker. **Env in dashboard:** `JWT_KEY` (required), `FRONTEND_URL` = Netlify URL with `https://` (required for CORS). **Production requires** linked PostgreSQL so **`DATABASE_URL` is set** (the API will not start with SQLite in Production). **`SEED_DATABASE`:** `true` = run seeder every startup; `false` = never seed; unset = Development seeds by default, Production does not unless `SeedDatabase: true` in config.
 
 **Frontend (Netlify):** Base dir = `frontend`, publish = `dist`. **Env:** `VITE_API_URL` = Render API URL (e.g. `https://xxx.onrender.com/api`).
 
