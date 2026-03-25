@@ -376,7 +376,7 @@ public class TaskMemoryService
         var results = new List<TaskSearchResultDto>();
         foreach (var (taskId, score) in ordered)
         {
-            var dto = await _taskService.GetTaskByIdAsync(taskId, userId);
+            var dto = await _taskService.GetTaskByIdAsync(taskId, userId, ct);
             if (dto != null)
                 results.Add(new TaskSearchResultDto { Task = dto, Score = score });
         }
@@ -490,7 +490,7 @@ public class TaskMemoryService
         int topK = 5,
         CancellationToken ct = default)
     {
-        var task = await _taskService.GetTaskByIdAsync(taskId, userId);
+        var task = await _taskService.GetTaskByIdAsync(taskId, userId, ct);
         if (task == null) return new List<TaskDependencySuggestionDto>();
 
         var text = BuildEmbeddingTextTitleAndDescriptionOnly(task.Title, task.Description ?? "");

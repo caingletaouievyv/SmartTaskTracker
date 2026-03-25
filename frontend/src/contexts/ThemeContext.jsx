@@ -32,10 +32,24 @@ const isAuthenticated = () => {
   return !!localStorage.getItem('token')
 }
 
-export function ThemeProvider({ children }) {
-  const [isDark, setIsDark] = useState(() => {
+const THEME_STORAGE_KEY = 'theme'
+
+function readInitialDarkMode() {
+  try {
+    const saved = localStorage.getItem(THEME_STORAGE_KEY)
+    if (saved === 'dark') return true
+    if (saved === 'light') return false
+  } catch {
+    /* ignore */
+  }
+  if (typeof window !== 'undefined' && typeof window.matchMedia === 'function') {
     return window.matchMedia('(prefers-color-scheme: dark)').matches
-  })
+  }
+  return false
+}
+
+export function ThemeProvider({ children }) {
+  const [isDark, setIsDark] = useState(() => readInitialDarkMode())
 
   const [accentColor, setAccentColor] = useState('gray')
 
@@ -59,6 +73,11 @@ export function ThemeProvider({ children }) {
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light')
+    try {
+      localStorage.setItem(THEME_STORAGE_KEY, isDark ? 'dark' : 'light')
+    } catch {
+      /* ignore */
+    }
   }, [isDark])
 
   useEffect(() => {

@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using System.Threading;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SmartTaskTracker.API.Services;
@@ -20,9 +21,9 @@ public class TagsController : ControllerBase
     private int GetUserId() => int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 
     [HttpGet]
-    public async Task<ActionResult<Dictionary<string, string>>> GetTags()
+    public async Task<ActionResult<Dictionary<string, string>>> GetTags(CancellationToken cancellationToken)
     {
-        var tags = await _tagService.GetAllTagsAsync(GetUserId());
+        var tags = await _tagService.GetAllTagsAsync(GetUserId(), cancellationToken);
         return Ok(tags);
     }
 }

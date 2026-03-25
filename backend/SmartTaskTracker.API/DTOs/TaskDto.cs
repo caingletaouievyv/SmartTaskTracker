@@ -35,6 +35,16 @@ public class TaskDto
     public int? CustomOrder { get; set; }
 }
 
+/// <summary>Paginated task list for GET /api/tasks (ia.md: pagination-ready lists).</summary>
+public class TaskPagedListDto
+{
+    public List<TaskDto> Items { get; set; } = new();
+    public int TotalCount { get; set; }
+    public int Page { get; set; } = 1;
+    public int PageSize { get; set; }
+    public int TotalPages { get; set; }
+}
+
 public class CreateTaskDto
 {
     [Required(ErrorMessage = "Title is required")]

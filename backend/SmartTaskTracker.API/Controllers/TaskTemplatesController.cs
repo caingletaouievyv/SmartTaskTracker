@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using System.Threading;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SmartTaskTracker.API.DTOs;
@@ -21,52 +22,45 @@ public class TaskTemplatesController : ControllerBase
     private int GetUserId() => int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 
     [HttpGet]
-    public async Task<ActionResult<List<TaskTemplateDto>>> GetTemplates()
+    public async Task<ActionResult<List<TaskTemplateDto>>> GetTemplates(CancellationToken cancellationToken)
     {
-        var templates = await _templateService.GetTemplatesAsync(GetUserId());
+        var templates = await _templateService.GetTemplatesAsync(GetUserId(), cancellationToken);
         return Ok(templates);
     }
 
     [HttpGet("{id}")]
-    public async Task<ActionResult<TaskTemplateDto>> GetTemplate(int id)
+    public async Task<ActionResult<TaskTemplateDto>> GetTemplate(int id, CancellationToken cancellationToken)
     {
-        var template = await _templateService.GetTemplateByIdAsync(id, GetUserId());
+        var template = await _templateService.GetTemplateByIdAsync(id, GetUserId(), cancellationToken);
         if (template == null) return NotFound();
         return Ok(template);
     }
 
     [HttpPost]
-    public async Task<ActionResult<TaskTemplateDto>> CreateTemplate([FromBody] CreateTaskTemplateDto dto)
+    public async Task<ActionResult<TaskTemplateDto>> CreateTemplate([FromBody] CreateTaskTemplateDto dto, CancellationToken cancellationToken)
     {
         if (!ModelState.IsValid)
             return BadRequest(ModelState);
 
-        try
-        {
-            var template = await _templateService.CreateTemplateAsync(dto, GetUserId());
-            return CreatedAtAction(nameof(GetTemplate), new { id = template.Id }, template);
-        }
-        catch (Exception ex)
-        {
-            return StatusCode(500, new { message = "Failed to create template", error = ex.Message });
-        }
+        var template = await _templateService.CreateTemplateAsync(dto, GetUserId(), cancellationToken);
+        return CreatedAtAction(nameof(GetTemplate), new { id = template.Id }, template);
     }
 
     [HttpPut("{id}")]
-    public async Task<IActionResult> UpdateTemplate(int id, [FromBody] UpdateTaskTemplateDto dto)
+    public async Task<IActionResult> UpdateTemplate(int id, [FromBody] UpdateTaskTemplateDto dto, CancellationToken cancellationToken)
     {
         if (!ModelState.IsValid)
             return BadRequest(ModelState);
 
-        var success = await _templateService.UpdateTemplateAsync(id, dto, GetUserId());
+        var success = await _templateService.UpdateTemplateAsync(id, dto, GetUserId(), cancellationToken);
         if (!success) return NotFound(new { message = "Template not found" });
         return NoContent();
     }
 
     [HttpDelete("{id}")]
-    public async Task<IActionResult> DeleteTemplate(int id)
+    public async Task<IActionResult> DeleteTemplate(int id, CancellationToken cancellationToken)
     {
-        var success = await _templateService.DeleteTemplateAsync(id, GetUserId());
+        var success = await _templateService.DeleteTemplateAsync(id, GetUserId(), cancellationToken);
         if (!success) return NotFound();
         return NoContent();
     }

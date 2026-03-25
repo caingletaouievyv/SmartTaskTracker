@@ -26,10 +26,12 @@ build/
 .env
 .env.local
 appsettings.Development.json
-ia.md
 
 # Database
 *.db
 *.db-shm
 *.db-wal
+
+# Docs
+docs/ia.md
 

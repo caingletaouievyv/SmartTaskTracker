@@ -11,7 +11,10 @@ export const taskService = {
     if (priority !== null && priority !== undefined) params.priority = priority
     if (tags) params.tags = tags
     const { data } = await api.get('/tasks', { params })
-    return data
+    // GET /api/tasks returns TaskPagedListDto { items, totalCount, page, pageSize, totalPages } (ia.md)
+    if (data && Array.isArray(data.items)) return data.items
+    if (Array.isArray(data)) return data
+    return []
   },
 
   getById: async (id) => {

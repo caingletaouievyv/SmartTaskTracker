@@ -1,3 +1,4 @@
+using System.Threading;
 using Microsoft.EntityFrameworkCore;
 using SmartTaskTracker.API.Data;
 using SmartTaskTracker.API.DTOs;
@@ -19,14 +20,14 @@ public class SettingsService
         _context = context;
     }
 
-    public async Task<SettingsDto?> GetSettingsAsync(int userId)
+    public async Task<SettingsDto?> GetSettingsAsync(int userId, CancellationToken cancellationToken = default)
     {
         var settings = await _context.UserSettings
-            .FirstOrDefaultAsync(s => s.UserId == userId);
+            .FirstOrDefaultAsync(s => s.UserId == userId, cancellationToken);
 
         if (settings == null)
         {
-            if (!await _context.Users.AnyAsync(u => u.Id == userId))
+            if (!await _context.Users.AnyAsync(u => u.Id == userId, cancellationToken))
                 throw new UnauthorizedAccessException("User not found.");
             settings = new UserSettings
             {
@@ -35,20 +36,20 @@ public class SettingsService
                 UpdatedAt = DateTime.UtcNow
             };
             _context.UserSettings.Add(settings);
-            await _context.SaveChangesAsync();
+            await _context.SaveChangesAsync(cancellationToken);
         }
 
         return ToDto(settings);
     }
 
-    public async Task<SettingsDto?> UpdateSettingsAsync(int userId, SettingsDto dto)
+    public async Task<SettingsDto?> UpdateSettingsAsync(int userId, SettingsDto dto, CancellationToken cancellationToken = default)
     {
         var settings = await _context.UserSettings
-            .FirstOrDefaultAsync(s => s.UserId == userId);
+            .FirstOrDefaultAsync(s => s.UserId == userId, cancellationToken);
 
         if (settings == null)
         {
-            if (!await _context.Users.AnyAsync(u => u.Id == userId))
+            if (!await _context.Users.AnyAsync(u => u.Id == userId, cancellationToken))
                 throw new UnauthorizedAccessException("User not found.");
             settings = new UserSettings { UserId = userId };
             _context.UserSettings.Add(settings);
@@ -75,7 +76,7 @@ public class SettingsService
         settings.ActiveTimerJson = dto.ActiveTimer != null ? JsonSerializer.Serialize(dto.ActiveTimer, JsonOptions) : string.Empty;
         settings.UpdatedAt = DateTime.UtcNow;
 
-        await _context.SaveChangesAsync();
+        await _context.SaveChangesAsync(cancellationToken);
         return ToDto(settings);
     }
 

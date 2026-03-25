@@ -3,7 +3,6 @@ using SmartTaskTracker.API.Data;
 using SmartTaskTracker.API.DTOs;
 using SmartTaskTracker.API.Models;
 using SmartTaskTracker.API.Services;
-using TaskAsync = System.Threading.Tasks.Task;
 using TaskStatus = SmartTaskTracker.API.Models.TaskStatus;
 using Xunit;
 
@@ -33,7 +32,7 @@ public class TaskServiceTests
     }
 
     [Fact]
-    public async TaskAsync CreateTaskAsync_ValidTask_ReturnsTaskDto()
+    public async System.Threading.Tasks.Task CreateTaskAsync_ValidTask_ReturnsTaskDto()
     {
         using var context = GetContext();
         var user = CreateTestUser(context);
@@ -53,7 +52,7 @@ public class TaskServiceTests
     }
 
     [Fact]
-    public async TaskAsync GetTasksAsync_ReturnsUserTasks()
+    public async System.Threading.Tasks.Task GetTasksAsync_ReturnsUserTasks()
     {
         using var context = GetContext();
         var user = CreateTestUser(context);
@@ -64,11 +63,34 @@ public class TaskServiceTests
 
         var result = await service.GetTasksAsync(user.Id, null, null, null);
 
-        Assert.Equal(2, result.Count);
+        Assert.Equal(2, result.TotalCount);
+        Assert.Equal(2, result.Items.Count);
     }
 
     [Fact]
-    public async TaskAsync GetTasksAsync_FiltersByStatus()
+    public async System.Threading.Tasks.Task GetTasksAsync_Pagination_ReturnsPageAndTotalCount()
+    {
+        using var context = GetContext();
+        var user = CreateTestUser(context);
+        var service = new TaskService(context);
+
+        for (var i = 0; i < 5; i++)
+            await service.CreateTaskAsync(new CreateTaskDto { Title = $"Task {i}" }, user.Id);
+
+        var page1 = await service.GetTasksAsync(user.Id, null, null, "title", page: 1, pageSize: 2);
+        Assert.Equal(5, page1.TotalCount);
+        Assert.Equal(2, page1.Items.Count);
+        Assert.Equal(1, page1.Page);
+        Assert.Equal(2, page1.PageSize);
+        Assert.Equal(3, page1.TotalPages);
+
+        var page3 = await service.GetTasksAsync(user.Id, null, null, "title", page: 3, pageSize: 2);
+        Assert.Single(page3.Items);
+        Assert.Equal("Task 4", page3.Items[0].Title);
+    }
+
+    [Fact]
+    public async System.Threading.Tasks.Task GetTasksAsync_FiltersByStatus()
     {
         using var context = GetContext();
         var user = CreateTestUser(context);
@@ -79,12 +101,12 @@ public class TaskServiceTests
 
         var result = await service.GetTasksAsync(user.Id, null, "active", null);
 
-        Assert.Single(result);
-        Assert.Equal("Active Task", result[0].Title);
+        Assert.Single(result.Items);
+        Assert.Equal("Active Task", result.Items[0].Title);
     }
 
     [Fact]
-    public async TaskAsync UpdateTaskAsync_ValidTask_ReturnsSuccess()
+    public async System.Threading.Tasks.Task UpdateTaskAsync_ValidTask_ReturnsSuccess()
     {
         using var context = GetContext();
         var user = CreateTestUser(context);
@@ -101,7 +123,7 @@ public class TaskServiceTests
     }
 
     [Fact]
-    public async TaskAsync DeleteTaskAsync_ValidId_ReturnsTrue()
+    public async System.Threading.Tasks.Task DeleteTaskAsync_ValidId_ReturnsTrue()
     {
         using var context = GetContext();
         var user = CreateTestUser(context);
@@ -116,7 +138,7 @@ public class TaskServiceTests
     }
 
     [Fact]
-    public async TaskAsync ArchiveTaskAsync_ArchivesTask()
+    public async System.Threading.Tasks.Task ArchiveTaskAsync_ArchivesTask()
     {
         using var context = GetContext();
         var user = CreateTestUser(context);
@@ -126,7 +148,7 @@ public class TaskServiceTests
         var result = await service.ArchiveTaskAsync(created.Id, user.Id);
 
         Assert.True(result);
-        var tasks = await service.GetTasksAsync(user.Id, null, null, null, false);
-        Assert.DoesNotContain(tasks, t => t.Id == created.Id);
+        var page = await service.GetTasksAsync(user.Id, null, null, null, false);
+        Assert.DoesNotContain(page.Items, t => t.Id == created.Id);
     }
 }

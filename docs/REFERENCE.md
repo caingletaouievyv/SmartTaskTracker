@@ -1,6 +1,6 @@
 # Reference
 
-Schema, setup, unit test todos. Use sections below when you need to look something up. Code and docs (AI, REFERENCE, TESTING) stay in sync.
+Schema, setup, unit test todos. Use sections below when you need to look something up. Code and docs (**[ia.md](ia.md)**, [ai.md](ai.md), [reference.md](reference.md), [testing.md](testing.md)) stay in sync; structure and conventions follow **ia.md** when in doubt.
 
 ---
 
@@ -15,7 +15,7 @@ Schema, setup, unit test todos. Use sections below when you need to look somethi
 
 Never commit `appsettings.Development.json` (in .gitignore).
 
-**Error handling:** `ErrorHandlingMiddleware` maps `UnauthorizedAccessException`, `SecurityTokenExpiredException`, `SecurityTokenException` → 401. `SettingsService` checks user exists before creating `UserSettings` (avoids FK; throws if user missing → 401).
+**Error handling:** `ErrorHandlingMiddleware` maps `UnauthorizedAccessException`, `SecurityTokenExpiredException`, `SecurityTokenException` → 401. **Production:** `ErrorDto.details` is omitted (null); full exception text is logged only. **Development:** `details` includes the exception message for debugging. `SettingsService` checks user exists before creating `UserSettings` (avoids FK; throws if user missing → 401).
 
 ---
 
@@ -37,13 +37,13 @@ Full table/column list: see repo history (was `DATABASE_SCHEMA.md`).
 
 ## Unit test todos
 
-**Done:** AuthService (backend), authService + ThemeContext (frontend), TaskServiceTests, useTasks.
+**Done:** AuthService (backend); TagService, SettingsService, TaskTemplateService, TaskService unit tests; authService, taskService, api (`getApiErrorMessage`), ThemeContext, useTasks (frontend).
 
-**Backend missing:** SettingsService, TagService, TaskTemplateService.
+**Backend missing:** Integration/API tests (optional); add unit tests when new services ship; thread `CancellationToken` through remaining task mutations (create/update/delete/bulk/archive/import/reorder/history/dependencies) when you touch those paths — read + AI routes already pass it per **ia.md**.
 
-**Frontend missing:** taskService, settingsService, tagService, taskTemplateService, analyticsService, reminderService, taskHistoryService; useSettings, useDialog, useTimer, useNotifications, useKeyboardShortcuts; TaskCard, TaskModal, Dialog, TaskHistory, Navbar; AuthContext.
+**Frontend missing:** settingsService, tagService, taskTemplateService, analyticsService, reminderService, taskHistoryService; useSettings, useDialog, useTimer, useNotifications, useKeyboardShortcuts; TaskCard, TaskModal, Dialog, TaskHistory, Navbar; AuthContext.
 
-**Priority:** Critical = TaskService ✅; High = useTasks ✅, TaskCard, TaskModal; then services/hooks; then components.
+**Priority:** Critical: TaskService (done). High: useTasks (done), TaskCard, TaskModal; then services/hooks; then components.
 
 **Pattern:** Backend: xUnit `[Fact]`; Frontend: Vitest `describe`/`it`.
 
@@ -55,7 +55,7 @@ Full table/column list: see repo history (was `DATABASE_SCHEMA.md`).
 
 **Frontend (Netlify):** Base dir = `frontend`, publish = `dist`. **Env:** `VITE_API_URL` = Render API URL (e.g. `https://xxx.onrender.com/api`).
 
-**CORS:** Backend allows only `FRONTEND_URL` + localhost. Set `FRONTEND_URL` in Render and redeploy. Full steps: [DEPLOYMENT.md](DEPLOYMENT.md).
+**CORS:** Backend allows only `FRONTEND_URL` + localhost. Set `FRONTEND_URL` in Render and redeploy. Full steps: [deployment.md](deployment.md).
 
 ---
 
@@ -63,9 +63,9 @@ Full table/column list: see repo history (was `DATABASE_SCHEMA.md`).
 
 **Current:** Semantic search + NL task + smart tagging + dependency suggestions implemented. "What's next?" = DB ranking only (not AI).
 
-**NL task:** `POST /api/tasks/from-natural-language` → `CreateTaskDto`. Tags normalized to first letter capital. UI: **+ Add Task** (main = blank modal; sparkle = "Add from text"). LLM key: env or `TaskMemory:LlmApiKey`; no key = keyword fallback.
+**NL task:** `POST /api/tasks/from-natural-language` → `CreateTaskDto`. Tags normalized to first letter capital. UI: **+ Add Task** opens a blank modal; the adjacent AI control opens **Add from text**. LLM key: env or `TaskMemory:LlmApiKey`; no key = keyword fallback.
 
-**Smart tagging** ✅ — full text first; if no results, tries each word. **Dependency suggestions** ✅ — query uses **title + description only** (same as smart tagging); from similar tasks' dependencies; results merge pattern-based (what similar tasks depend on) + similar-task candidates; shared meaningful word (weekend/saturday/sunday as one concept) boosts score. **Next:** [AI.md](AI.md).
+**Smart tagging** (implemented): full text first; if no results, tries each word. **Dependency suggestions** (implemented): query uses **title + description only** (same as smart tagging); from similar tasks' dependencies; results merge pattern-based (what similar tasks depend on) + similar-task candidates; shared meaningful word (weekend/saturday/sunday as one concept) boosts score. **Further work:** [ai.md](ai.md).
 
 ### Follow the code (trace flows) — AI features
 
@@ -86,7 +86,7 @@ Key backend files: `TaskMemoryService.cs`, `TaskMemoryOptions.cs`, `Helpers/LRUC
 
 | Step | Where | What to look at |
 |------|--------|------------------|
-| 1 | Frontend | `frontend/src/pages/Tasks.jsx` — sparkle dropdown, "Add from text" input; submit calls `taskService.parseNaturalLanguage(nlInput)`. |
+| 1 | Frontend | `frontend/src/pages/Tasks.jsx` — AI dropdown, "Add from text" input; submit calls `taskService.parseNaturalLanguage(nlInput)`. |
 | 2 | Frontend | `frontend/src/services/taskService.js` — `parseNaturalLanguage(text)` → `POST /api/tasks/from-natural-language` body `{ text }`. |
 | 3 | Backend | `Controllers/TasksController.cs` — `ParseNaturalLanguage()` → `NaturalLanguageTaskService.ParseAsync(request.Text)`. |
 | 4 | Backend | `Services/NaturalLanguageTaskService.cs` — `ParseAsync()`: LLM or keyword fallback; `MergeFallback()`. |
@@ -138,7 +138,7 @@ Key backend files: `AuthService.cs`, `Helpers/JwtHelper.cs`, `Helpers/JwtOptions
 | 1 | Frontend | `frontend/src/hooks/useTasks.js` — `fetchTasks()` → taskService.getAll(params); create/update/delete → taskService.create/update/delete. |
 | 2 | Frontend | `frontend/src/services/taskService.js` — getAll → `GET /api/tasks`; create → `POST /api/tasks`; update → `PUT /api/tasks/{id}`; delete → `DELETE /api/tasks/{id}`. |
 | 3 | Backend | `Controllers/TasksController.cs` — GetTasks, Create, Update, Delete → `TaskService.GetTasksAsync`, `CreateTaskAsync`, `UpdateTaskAsync`, `DeleteTaskAsync`. |
-| 4 | Backend | `Services/TaskService.cs` — query/filter/sort in GetTasksAsync; TaskMapper for DTOs; tags via UpdateTaskTagsAsync, GetOrCreateTagAsync. **Delete:** DeleteTaskAsync removes TaskDependencies, TaskTags, TaskHistories, TaskEmbeddings (and subtasks if parent) before removing the task (schema uses Restrict). |
+| 4 | Backend | `Services/TaskService.cs` — query/filter/sort in `GetTasksAsync`; returns **`TaskPagedListDto`** (`items`, `totalCount`, `page`, `pageSize`, `totalPages`). Omit `page`/`pageSize` → full list (same UX as before). Both `page` and `pageSize` (> 0) → EF `Skip`/`Take` (max `pageSize` 500). Frontend `taskService.getAll` unwraps `items`. TaskMapper for DTOs; tags via UpdateTaskTagsAsync, GetOrCreateTagAsync. **Delete:** DeleteTaskAsync removes TaskDependencies, TaskTags, TaskHistories, TaskEmbeddings (and subtasks if parent) before removing the task (schema uses Restrict). |
 
 **Delete UI:** Task and subtask deletion use the same app confirm dialog (`useDialog().confirm`): Tasks.jsx for task delete, TaskModal SubtaskList for subtask delete, with consistent title ("Delete Task") and confirm message pattern.
 
@@ -191,13 +191,13 @@ See also: **AI features** trace for semantic search (TaskMemoryService, embeddin
 | Area | Where | What to look at |
 |------|--------|------------------|
 | Recurring | TaskService | CreateNextRecurrenceAsync on complete: next occurrence copies **all** fields (title, description, priority, file, notes, estimate, CustomOrder, tags) and **subtasks** (with their fields + tags); DueDate = next period; RecurrenceType, RecurrenceEndDate. Dependencies are not copied (new occurrence has no "depends on" by default). |
-| Templates | TaskTemplatesController, TaskTemplateService | Save as template → create from template. |
+| Templates | TaskTemplatesController, TaskTemplateService | Save as template → create from template. **UI:** `TasksTemplatesPanel.jsx` on Tasks. |
 | Duplicate | Frontend | Create task with same data (or backend duplicate endpoint if present). |
-| Calendar / Reminders / Analytics / Time / History | Respective controllers and services | Calendar, Reminders, Analytics, TaskService time/history. |
+| Calendar / Reminders / Analytics / Time / History | Respective controllers and services | Calendar; **Reminders/Analytics on Tasks:** `TasksRemindersPanel.jsx`, `TasksAnalyticsPanel.jsx`; TaskService time/history. |
 
 **UI (dark mode, accent, shortcuts, notifications, archive)**
 
 | Step | Where | What to look at |
 |------|--------|------------------|
-| 1 | Frontend | ThemeContext (dark mode); Settings → accent; keyboard shortcuts (e.g. `n`, `s`, `/`); notifications; Archive / Show Archived in Tasks. **Tasks page:** No "My Tasks" heading. **Top row:** search (left); Select All, + Add Task (right). **Filter row:** Show Archived | Today / This Week / High Priority | All Tasks, Sort by | Filter Preset, What's next?, Clear Filter. **Back to top:** Settings and Tasks show floating ↑ when scrolled. |
+| 1 | Frontend | ThemeContext (dark mode); Settings → accent; keyboard shortcuts (e.g. `n`, `s`, `/`); notifications; Archive / Show Archived in Tasks. **Tasks page:** No "My Tasks" heading. **Top row:** search (left); Select All, + Add Task (right). **Filter row:** Show Archived | Today / This Week / High Priority | All Tasks, Sort by | Filter Preset, What's next?, Clear Filter. **Back to top:** Settings and Tasks show a scroll-to-top control when scrolled. |
 | 2 | Backend | UserSettings (theme, accent); archive → task.IsArchived, TaskService filter includeArchived. |

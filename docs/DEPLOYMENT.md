@@ -1,6 +1,8 @@
 # Deployment Guide for SmartTaskTracker
 
-This guide will help you deploy SmartTaskTracker to **Netlify (frontend)** and **Render (backend)** for **FREE**.
+Documentation index: [docs.md](docs.md). Implementation agreement: [ia.md](ia.md) (optional local file; see `.gitignore` if omitted from clone).
+
+Deploy the SmartTaskTracker **frontend** to Netlify and **backend** to Render using each platform’s free tier where applicable.
 
 ---
 
@@ -36,9 +38,9 @@ Use this as reference for **local** (`.env` in project root, not committed) and 
 
 ## Prerequisites
 
-1. **GitHub Account** - Your code needs to be in a GitHub repository
-2. **Netlify Account** - Sign up at [netlify.com](https://netlify.com) (free)
-3. **Render Account** - Sign up at [render.com](https://render.com) (free)
+1. **GitHub** — repository containing this project
+2. **Netlify** — [netlify.com](https://netlify.com)
+3. **Render** — [render.com](https://render.com)
 
 ---
 
@@ -106,7 +108,7 @@ Optional: `SEED_DATABASE=true` to run `DbSeeder` in production once; remove or s
 - First deployment takes 5–10 minutes (Docker build)
 - Backend will be at e.g. `https://your-service-name.onrender.com`
 
-**✅ Backend is now live!**
+**Backend deployment:** complete when the service shows **Live** and health checks pass.
 
 ---
 
@@ -122,10 +124,10 @@ Optional: `SEED_DATABASE=true` to run `DbSeeder` in production once; remove or s
 
 ### 3.2 Configure Build Settings
 
-Netlify will read `netlify.toml` and:
-- ✅ Set base directory: `frontend`
-- ✅ Set build command: `npm install && npm run build`
-- ✅ Set publish directory: `dist`
+Netlify reads `netlify.toml` and applies:
+- Base directory: `frontend`
+- Build command: `npm install && npm run build`
+- Publish directory: `dist`
 
 ### 3.3 Set Environment Variable
 
@@ -146,7 +148,7 @@ Netlify will read `netlify.toml` and:
 - Builds your React app
 - Deploys to CDN
 
-**✅ Frontend is now live!**
+**Frontend deployment:** complete when the site build succeeds and the URL loads.
 
 ---
 
@@ -166,14 +168,16 @@ CORS allows only origins from `FRONTEND_URL` (and localhost). Wrong or missing `
 
 ## Step 5: Test Your Deployment
 
-1. **Visit your Netlify URL:** `https://your-app-name.netlify.app`
-2. **Register a new account**
-3. **Create a task**
-4. **Test all features!**
+1. Open the Netlify URL (e.g. `https://your-app-name.netlify.app`).
+2. Register a user and sign in.
+3. Create and edit a task.
+4. Run through [testing.md](testing.md) scenarios as needed.
 
 ---
 
 ## Troubleshooting
+
+**Diagnostic order:** (1) Render service logs, (2) Netlify build/deploy logs, (3) browser network and console, (4) environment variables on both platforms (redeploy after changes).
 
 ### Backend Issues
 
@@ -192,7 +196,7 @@ CORS allows only origins from `FRONTEND_URL` (and localhost). Wrong or missing `
 - Service sleeps after 15 min inactivity
 - First request wakes it up (takes time)
 - **App behavior:** Banner "Server is waking up" + auto-retry every 10s; login/register check health first so no "invalid credentials"
-- **Solution:** Accept it for free tier, or upgrade to paid ($7/month)
+- **Mitigation:** Expected on the free tier; use a paid instance for always-on behavior (see Render pricing).
 
 ### Frontend Issues
 
@@ -232,19 +236,15 @@ CORS allows only origins from `FRONTEND_URL` (and localhost). Wrong or missing `
 
 ## Free Tier Limitations
 
-### Render (Backend)
-- ✅ Free PostgreSQL (1GB storage)
-- ⚠️ **Service sleeps after 15 min inactivity**
-- ⚠️ **Cold start: 30-50 seconds** (first request after sleep)
-- ✅ Unlimited deployments
-- ✅ 750 hours/month free
+### Render (backend)
+- Free PostgreSQL (1GB storage) on eligible plans
+- **Service sleeps** after ~15 minutes of inactivity (free tier)
+- **Cold start:** first request after sleep may take ~30–50 seconds
+- Deployment and monthly hour limits per Render’s current free-tier policy
 
-### Netlify (Frontend)
-- ✅ 100GB bandwidth/month
-- ✅ Unlimited builds
-- ✅ Custom domain support
-- ✅ CDN included
-- ✅ **No limitations for your use case!**
+### Netlify (frontend)
+- Bandwidth, build minutes, and feature limits per Netlify’s current free tier
+- Custom domains and CDN supported on standard plans
 
 ---
 
@@ -269,21 +269,8 @@ After making changes:
 
 ---
 
-## Next Steps
+## Next steps
 
-Once deployed:
-- ✅ Share your app URL with employers/friends
-- ✅ Add to your portfolio
-- ✅ Test all features in production (including AI: semantic search, Add from text, smart tagging, dependency suggestions — see [docs/AI.md](AI.md))
-
----
-
-## Support
-
-If you run into issues:
-1. Check Render logs (backend)
-2. Check Netlify build logs (frontend)
-3. Check browser console (frontend errors)
-4. Verify environment variables are set correctly
-
-**Good luck with deployment! 🚀**
+After deployment:
+- Record the production frontend and backend URLs in your runbook or README fork.
+- Run smoke tests in production ([testing.md](testing.md)); verify AI features if API keys are configured ([ai.md](ai.md)).

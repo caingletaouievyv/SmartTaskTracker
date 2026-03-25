@@ -8,12 +8,12 @@ Full-stack task app — React + ASP.NET Core 9, JWT auth, SQLite/PostgreSQL. Run
 
 ## Demo
 
-### AI features ([docs/AI.md](docs/AI.md)):
+### AI features ([docs/ai.md](docs/ai.md)):
 
 | Feature | GIF | Steps |
 |--------|-----|-------|
 | **Semantic search** | ![Semantic search](docs/demo/ai-semantic-search.gif) | Type in search (e.g. `meetings`, `things to discuss with the team`) → results by meaning; keyword fallback when no semantic match. |
-| **Add from text** | ![Add from text](docs/demo/ai-add-from-text.gif) | + Add Task → sparkle (✦) → e.g. `Review report by Friday, high priority` → Add from text → modal pre-filled → Create. |
+| **Add from text** | ![Add from text](docs/demo/ai-add-from-text.gif) | + Add Task → secondary AI menu → e.g. `Review report by Friday, high priority` → Add from text → modal pre-filled → Create. |
 | **Smart tagging** | ![Smart tagging](docs/demo/ai-smart-tagging.gif) | Create/edit task → type title/description similar to existing tasks → “From similar tasks:” suggestions → click to add. |
 | **Dependency suggestions** | ![Dependency suggestions](docs/demo/ai-dependency-suggestions.gif) | Edit task → Depends On → “From similar tasks” → click to add dependency → Save. |
 
@@ -28,10 +28,10 @@ Full-stack task app — React + ASP.NET Core 9, JWT auth, SQLite/PostgreSQL. Run
 | **Bulk** | ![Bulk](docs/demo/bulk.gif) | Select 2 tasks → Change Status → Completed. Select → Delete Selected. Select All → Clear. |
 | **What's next?** | ![What's next](docs/demo/whats-next.gif) | Click "What's next?" → panel with suggested tasks + reason (DB ranking) → click title to open edit modal. |
 | **Export / Import** | ![Export Import](docs/demo/export-import.gif) | Export CSV (with/without selection). Import CSV (sample file). |
-| **Extras** | ![Extras](docs/demo/extras.gif) | Recurring → complete → next occurrence. Save as template → use template. Duplicate task. Calendar, Reminders, Analytics. Time tracking, History (📜), Estimates. |
+| **Extras** | ![Extras](docs/demo/extras.gif) | Recurring → complete → next occurrence. Save as template → use template. Duplicate task. Calendar, Reminders, Analytics. Time tracking, task history, Estimates. |
 | **UI** | ![UI](docs/demo/ui.gif) | Dark mode, Settings → accent. Shortcuts: `n`, `s`, `/`. Notifications. Archive → Show Archived → Unarchive. |
 
-Full checklist: [docs/TESTING.md](docs/TESTING.md).
+Full checklist: [docs/testing.md](docs/testing.md).
 
 ---
 
@@ -53,10 +53,12 @@ Swagger: http://localhost:5000/swagger (dev only)
 
 | Doc | When to use |
 |-----|--------------|
-| [docs/TESTING.md](docs/TESTING.md) | Manual test checklist (all features) |
-| [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) | Deploy to Netlify + Render |
-| [docs/AI.md](docs/AI.md) | AI plan (semantic search, NL task creation, etc.) |
-| [docs/REFERENCE.md](docs/REFERENCE.md) | DB schema, backend setup, unit test todos |
+| [docs/docs.md](docs/docs.md) | Index of all documentation |
+| [docs/ia.md](docs/ia.md) | Implementation agreement (architecture, API conventions, workflow) |
+| [docs/testing.md](docs/testing.md) | Manual test checklist (all features) |
+| [docs/deployment.md](docs/deployment.md) | Deploy to Netlify + Render |
+| [docs/ai.md](docs/ai.md) | AI plan (semantic search, NL task creation, etc.) |
+| [docs/reference.md](docs/reference.md) | DB schema, backend setup, unit test todos |
 
 ---
 
@@ -67,16 +69,18 @@ What exists and where to look.
 ### Root
 ```
 SmartTaskTracker/
-  README.md              ← you are here
+  README.md              Project overview (this file)
   .gitignore             Git ignore rules
   .env                   Local frontend env (optional; VITE_API_URL fallback in api.js)
   render.yaml             Render backend + DB config (Blueprint); env vars set in dashboard for manual deploy
   netlify.toml           Netlify frontend build (base=frontend, publish=dist)
   docs/
-    TESTING.md            Manual test checklist (all features)
-    DEPLOYMENT.md         Deploy to Netlify + Render (step-by-step)
-    AI.md                 AI plan: use cases + design + follow-the-code flows (semantic search, NL tasks)
-    REFERENCE.md          DB schema summary, backend setup, unit test todos
+    docs.md               Documentation index
+    ia.md                 Implementation agreement (layers, API, workflow)
+    testing.md            Manual test checklist (all features)
+    deployment.md         Deploy to Netlify + Render (step-by-step)
+    ai.md                   AI plan: use cases + design + follow-the-code flows (semantic search, NL tasks)
+    reference.md          DB schema summary, backend setup, unit test todos
 ```
 
 ### Frontend (`frontend/`)
@@ -100,6 +104,13 @@ frontend/
       Dialog.jsx          Alerts, confirmations, prompts
       Dialog.css
       TaskHistory.jsx     Task audit log
+      BulkActionsBar.jsx  Bulk selection actions (Tasks page)
+      TasksFilterToolbar.jsx  Filters, sort, presets, What's next? (Tasks page)
+      TasksSearchAndAddToolbar.jsx  Search, select all, Add Task / add-from-text (Tasks page)
+      TasksSuggestionsModal.jsx  What's next? suggestion list modal (Tasks page)
+      TasksTemplatesPanel.jsx  Templates card (Tasks page)
+      TasksAnalyticsPanel.jsx  Analytics summary card (Tasks page)
+      TasksRemindersPanel.jsx  Overdue / upcoming reminders card (Tasks page)
     pages/                 Page views
       Login.jsx           Login form
       Register.jsx        Register form
@@ -203,7 +214,7 @@ backend/SmartTaskTracker.API.Tests/
 
 ## Features (short)
 
-Tasks: CRUD, priorities, tags, status, due dates, recurring, templates, subtasks, dependencies, time tracking, calendar, CSV import/export, search/filter/sort, bulk ops, keyboard shortcuts, dark mode, settings, browser notifications. **AI ([docs/AI.md](docs/AI.md)):** Semantic search, natural-language task creation, smart tagging, dependency suggestions (from similar tasks); see AI.md. **Render free tier:** First request may wake server (30–60s); app shows banner and auto-retries. 401 → clear session, redirect to login.
+Tasks: CRUD, priorities, tags, status, due dates, recurring, templates, subtasks, dependencies, time tracking, calendar, CSV import/export, search/filter/sort, bulk ops, keyboard shortcuts, dark mode, settings, browser notifications. **AI ([docs/ai.md](docs/ai.md)):** Semantic search, natural-language task creation, smart tagging, dependency suggestions (from similar tasks); see [docs/ai.md](docs/ai.md). **Render free tier:** First request may wake server (30–60s); app shows banner and auto-retries. 401 → clear session, redirect to login.
 
 ---
 
@@ -215,9 +226,9 @@ Tasks: CRUD, priorities, tags, status, due dates, recurring, templates, subtasks
 
 **CORS:** Backend allows only origins from `FRONTEND_URL` (and localhost). `FRONTEND_URL` must match the Netlify origin exactly (e.g. `https://smarttasktracker.netlify.app`).
 
-**Optional:** `SEED_DATABASE=true` on Render resets the seed user and runs `DbSeeder` every startup; set to `false` when done — see [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
+**Optional:** `SEED_DATABASE=true` on Render resets the seed user and runs `DbSeeder` every startup; set to `false` when done — see [docs/deployment.md](docs/deployment.md).
 
-Full steps: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)
+Full steps: [docs/deployment.md](docs/deployment.md)
 
 ---
 

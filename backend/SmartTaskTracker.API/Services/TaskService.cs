@@ -1,3 +1,4 @@
+using System.Threading;
 using Microsoft.EntityFrameworkCore;
 using SmartTaskTracker.API.Data;
 using SmartTaskTracker.API.DTOs;
@@ -5,7 +6,6 @@ using SmartTaskTracker.API.Helpers;
 using SmartTaskTracker.API.Models;
 using TaskModel = SmartTaskTracker.API.Models.Task;
 using TaskStatus = SmartTaskTracker.API.Models.TaskStatus;
-using TaskAsync = System.Threading.Tasks.Task;
 
 namespace SmartTaskTracker.API.Services;
 
@@ -25,7 +25,7 @@ public class TaskService
         BlockedByDependencies
     }
 
-    public async Task<List<TaskDto>> GetTasksAsync(int userId, string? search, string? status, string? sortBy, bool includeArchived = false, string? dueDate = null, int? priority = null, string? tags = null)
+    public async Task<TaskPagedListDto> GetTasksAsync(int userId, string? search, string? status, string? sortBy, bool includeArchived = false, string? dueDate = null, int? priority = null, string? tags = null, int? page = null, int? pageSize = null, CancellationToken cancellationToken = default)
     {
         var query = _context.Tasks.Where(t => t.UserId == userId && !t.ParentTaskId.HasValue);
         
@@ -42,7 +42,7 @@ public class TaskService
                 .Where(tt => tt.Tag.Name.ToLower().Contains(searchLower) || (alsoMatch != null && tt.Tag.Name.ToLower().Contains(alsoMatch)))
                 .Select(tt => tt.TaskId)
                 .Distinct()
-                .ToListAsync();
+                .ToListAsync(cancellationToken);
             query = query.Where(t =>
                 t.Title.ToLower().Contains(searchLower) || (alsoMatch != null && t.Title.ToLower().Contains(alsoMatch)) ||
                 (t.Description != null && (t.Description.ToLower().Contains(searchLower) || (alsoMatch != null && t.Description.ToLower().Contains(alsoMatch)))) ||
@@ -102,7 +102,7 @@ public class TaskService
                     .Where(tt => tagList.Contains(tt.Tag.Name.ToLower()))
                     .Select(tt => tt.TaskId)
                     .Distinct()
-                    .ToListAsync();
+                    .ToListAsync(cancellationToken);
                 
                 query = query.Where(t => taskIdsWithMatchingTags.Contains(t.Id));
             }
@@ -121,16 +121,54 @@ public class TaskService
             _ => query.OrderBy(t => t.CustomOrder ?? int.MaxValue).ThenByDescending(t => t.CreatedAt)
         };
 
-        var tasks = await query.ToListAsync();
-        
-        if (!tasks.Any())
-            return new List<TaskDto>();
-        
+        const int maxPageSize = 500;
+        var totalCount = await query.CountAsync(cancellationToken);
+        var usePaging = page is > 0 && pageSize is > 0;
+        var p = Math.Max(1, page ?? 1);
+        var ps = pageSize ?? 0;
+        if (usePaging && ps > maxPageSize)
+            ps = maxPageSize;
+
+        List<TaskModel> tasks;
+        if (usePaging)
+        {
+            var skip = (p - 1) * ps;
+            if (skip >= totalCount)
+            {
+                return new TaskPagedListDto
+                {
+                    Items = new List<TaskDto>(),
+                    TotalCount = totalCount,
+                    Page = p,
+                    PageSize = ps,
+                    TotalPages = totalCount == 0 ? 0 : (int)Math.Ceiling(totalCount / (double)ps)
+                };
+            }
+
+            tasks = await query.Skip(skip).Take(ps).ToListAsync(cancellationToken);
+        }
+        else
+        {
+            tasks = await query.ToListAsync(cancellationToken);
+        }
+
+        if (tasks.Count == 0)
+        {
+            return new TaskPagedListDto
+            {
+                Items = new List<TaskDto>(),
+                TotalCount = totalCount,
+                Page = usePaging ? p : 1,
+                PageSize = usePaging ? ps : (totalCount > 0 ? totalCount : 0),
+                TotalPages = totalCount == 0 ? 0 : (usePaging ? (int)Math.Ceiling(totalCount / (double)ps) : 1)
+            };
+        }
+
         var taskIds = tasks.Select(t => t.Id).ToList();
         
         var dependencies = await _context.TaskDependencies
             .Where(d => taskIds.Contains(d.TaskId) || taskIds.Contains(d.DependsOnTaskId))
-            .ToListAsync();
+            .ToListAsync(cancellationToken);
 
         // Preload dependency task info (titles/statuses) for accurate canStart calculation
         var dependsOnIds = dependencies.Select(d => d.DependsOnTaskId).Distinct().ToList();
@@ -139,29 +177,29 @@ public class TaskService
             : await _context.Tasks
                 .Where(t => dependsOnIds.Contains(t.Id) && t.UserId == userId)
                 .Select(t => new { t.Id, t.Title, t.Status })
-                .ToDictionaryAsync(x => x.Id, x => (x.Title, x.Status));
+                .ToDictionaryAsync(x => x.Id, x => (x.Title, x.Status), cancellationToken);
         
         // Get tags for all tasks
         var taskTags = await _context.TaskTags
             .Where(tt => taskIds.Contains(tt.TaskId))
             .Include(tt => tt.Tag)
-            .ToListAsync();
+            .ToListAsync(cancellationToken);
         
         // Get subtasks for all parent tasks
         var subtasks = await _context.Tasks
             .Where(t => t.ParentTaskId.HasValue && taskIds.Contains(t.ParentTaskId.Value) && t.UserId == userId)
             .OrderBy(t => t.CustomOrder ?? int.MaxValue)
             .ThenByDescending(t => t.CreatedAt)
-            .ToListAsync();
+            .ToListAsync(cancellationToken);
         
         // Get all subtask tags upfront
         var allSubtaskIds = subtasks.Select(st => st.Id).ToList();
         var allSubtaskTags = await _context.TaskTags
             .Where(tt => allSubtaskIds.Contains(tt.TaskId))
             .Include(tt => tt.Tag)
-            .ToListAsync();
+            .ToListAsync(cancellationToken);
         
-        return tasks.Select(task =>
+        var items = tasks.Select(task =>
         {
             var dependsOn = dependencies.Where(d => d.TaskId == task.Id).Select(d => d.DependsOnTaskId).ToList();
             var dependsOnTitles = dependsOn.Select(depId => 
@@ -195,26 +233,35 @@ public class TaskService
             
             return TaskMapper.ToDto(task, dependsOn, dependsOnTitles, blockedBy, canStart, subtaskDtos, completedSubtasks, taskSubtasks.Count, tags);
         }).ToList();
+
+        return new TaskPagedListDto
+        {
+            Items = items,
+            TotalCount = totalCount,
+            Page = usePaging ? p : 1,
+            PageSize = usePaging ? ps : totalCount,
+            TotalPages = totalCount == 0 ? 0 : (usePaging ? (int)Math.Ceiling(totalCount / (double)ps) : 1)
+        };
     }
 
-    public async Task<TaskDto?> GetTaskByIdAsync(int id, int userId)
+    public async Task<TaskDto?> GetTaskByIdAsync(int id, int userId, CancellationToken cancellationToken = default)
     {
-        var task = await _context.Tasks.FirstOrDefaultAsync(t => t.Id == id && t.UserId == userId);
+        var task = await _context.Tasks.FirstOrDefaultAsync(t => t.Id == id && t.UserId == userId, cancellationToken);
         if (task == null) return null;
         
         var dependsOn = await _context.TaskDependencies
             .Where(d => d.TaskId == id)
             .Select(d => d.DependsOnTaskId)
-            .ToListAsync();
+            .ToListAsync(cancellationToken);
         
         var blockedBy = await _context.TaskDependencies
             .Where(d => d.DependsOnTaskId == id)
             .Select(d => d.TaskId)
-            .ToListAsync();
+            .ToListAsync(cancellationToken);
         
         var dependsOnTasks = await _context.Tasks
             .Where(t => dependsOn.Contains(t.Id) && t.UserId == userId)
-            .ToListAsync();
+            .ToListAsync(cancellationToken);
         
         var dependsOnTitles = dependsOnTasks.Select(t => t.Title).ToList();
         
@@ -228,7 +275,7 @@ public class TaskService
         var tagsQuery = await _context.TaskTags
             .Where(tt => tt.TaskId == id)
             .Include(tt => tt.Tag)
-            .ToListAsync();
+            .ToListAsync(cancellationToken);
         var tags = tagsQuery.ToDictionary(tt => tt.Tag.Name, tt => tt.Tag.Color);
         
         // Get subtasks if this is a parent task
@@ -236,13 +283,13 @@ public class TaskService
             .Where(t => t.ParentTaskId == id && t.UserId == userId)
             .OrderBy(t => t.CustomOrder ?? int.MaxValue)
             .ThenByDescending(t => t.CreatedAt)
-            .ToListAsync();
+            .ToListAsync(cancellationToken);
         
         var subtaskIds = subtasks.Select(st => st.Id).ToList();
         var subtaskTags = await _context.TaskTags
             .Where(tt => subtaskIds.Contains(tt.TaskId))
             .Include(tt => tt.Tag)
-            .ToListAsync();
+            .ToListAsync(cancellationToken);
         
         var subtaskDtos = subtasks.Select(st =>
         {
@@ -256,10 +303,10 @@ public class TaskService
         return TaskMapper.ToDto(task, dependsOn, dependsOnTitles, blockedBy, canStart, subtaskDtos, completedSubtasks, subtasks.Count, tags);
     }
 
-    public async Task<List<TaskDto>> GetSubtasksAsync(int parentTaskId, int userId)
+    public async Task<List<TaskDto>> GetSubtasksAsync(int parentTaskId, int userId, CancellationToken cancellationToken = default)
     {
         // Verify parent task exists and belongs to user
-        var parentTask = await _context.Tasks.FirstOrDefaultAsync(t => t.Id == parentTaskId && t.UserId == userId);
+        var parentTask = await _context.Tasks.FirstOrDefaultAsync(t => t.Id == parentTaskId && t.UserId == userId, cancellationToken);
         if (parentTask == null) return new List<TaskDto>();
 
         // Get subtasks
@@ -267,7 +314,7 @@ public class TaskService
             .Where(t => t.ParentTaskId == parentTaskId && t.UserId == userId)
             .OrderBy(t => t.CustomOrder ?? int.MaxValue)
             .ThenByDescending(t => t.CreatedAt)
-            .ToListAsync();
+            .ToListAsync(cancellationToken);
 
         if (!subtasks.Any()) return new List<TaskDto>();
 
@@ -275,7 +322,7 @@ public class TaskService
         var subtaskTags = await _context.TaskTags
             .Where(tt => subtaskIds.Contains(tt.TaskId))
             .Include(tt => tt.Tag)
-            .ToListAsync();
+            .ToListAsync(cancellationToken);
 
         return subtasks.Select(st =>
         {
@@ -286,12 +333,12 @@ public class TaskService
         }).ToList();
     }
 
-    public async Task<List<TaskSuggestionDto>> GetSuggestedNextAsync(int userId, int? topK = null)
+    public async Task<List<TaskSuggestionDto>> GetSuggestedNextAsync(int userId, int? topK = null, CancellationToken cancellationToken = default)
     {
         const int defaultTopK = 10;
         var k = topK ?? defaultTopK;
-        var tasks = await GetTasksAsync(userId, null, null, "priority", includeArchived: false);
-        var active = tasks.Where(t => !t.IsCompleted && t.StatusName != "Cancelled").ToList();
+        var taskPage = await GetTasksAsync(userId, null, null, "priority", includeArchived: false, cancellationToken: cancellationToken);
+        var active = taskPage.Items.Where(t => !t.IsCompleted && t.StatusName != "Cancelled").ToList();
         var ordered = active
             .OrderByDescending(t => t.Priority)
             .ThenBy(t => t.DueDate ?? DateTime.MaxValue)
@@ -309,7 +356,7 @@ public class TaskService
         return results;
     }
 
-    private async TaskAsync LogHistoryAsync(int taskId, HistoryAction action, int userId, string details = "")
+    private async System.Threading.Tasks.Task LogHistoryAsync(int taskId, HistoryAction action, int userId, string details = "")
     {
         var history = new TaskHistory
         {
@@ -392,7 +439,7 @@ public class TaskService
         return $"#{red:X2}{green:X2}{blue:X2}";
     }
 
-    private async TaskAsync UpdateTaskTagsAsync(TaskModel task, List<string> tagNames, int userId)
+    private async System.Threading.Tasks.Task UpdateTaskTagsAsync(TaskModel task, List<string> tagNames, int userId)
     {
         // Remove existing tags
         var existingTaskTags = await _context.TaskTags
@@ -575,7 +622,7 @@ public class TaskService
         return UpdateTaskResult.Success;
     }
 
-    private async TaskAsync CreateNextRecurrenceAsync(TaskModel completedTask, int userId)
+    private async System.Threading.Tasks.Task CreateNextRecurrenceAsync(TaskModel completedTask, int userId)
     {
         if (completedTask.RecurrenceType == RecurrenceType.None) return;
 
@@ -727,9 +774,9 @@ public class TaskService
         return true;
     }
 
-    public async Task<TaskAnalyticsDto> GetAnalyticsAsync(int userId)
+    public async Task<TaskAnalyticsDto> GetAnalyticsAsync(int userId, CancellationToken cancellationToken = default)
     {
-        var tasks = await _context.Tasks.Where(t => t.UserId == userId).ToListAsync();
+        var tasks = await _context.Tasks.Where(t => t.UserId == userId).ToListAsync(cancellationToken);
         var now = DateTime.UtcNow;
         var weekStart = now.AddDays(-(int)now.DayOfWeek);
         var monthStart = new DateTime(now.Year, now.Month, 1);
@@ -749,7 +796,7 @@ public class TaskService
         };
     }
 
-    public async Task<RemindersResponseDto> GetRemindersAsync(int userId, int hoursAhead = 24)
+    public async Task<RemindersResponseDto> GetRemindersAsync(int userId, int hoursAhead = 24, CancellationToken cancellationToken = default)
     {
         var now = DateTime.UtcNow;
         var futureDate = now.AddHours(hoursAhead);
@@ -759,7 +806,7 @@ public class TaskService
                 && t.Status != TaskStatus.Completed 
                 && t.Status != TaskStatus.Cancelled 
                 && t.DueDate.HasValue)
-            .ToListAsync();
+            .ToListAsync(cancellationToken);
 
         var parentIds = allTasks
             .Where(t => t.ParentTaskId.HasValue)
@@ -772,7 +819,7 @@ public class TaskService
             : await _context.Tasks
                 .Where(t => parentIds.Contains(t.Id) && t.UserId == userId)
                 .Select(t => new { t.Id, t.Title })
-                .ToDictionaryAsync(x => x.Id, x => x.Title);
+                .ToDictionaryAsync(x => x.Id, x => x.Title, cancellationToken);
 
         var overdueTasks = allTasks
             .Where(t => t.DueDate < now)

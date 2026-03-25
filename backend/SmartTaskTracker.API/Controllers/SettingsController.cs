@@ -1,3 +1,4 @@
+using System.Threading;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SmartTaskTracker.API.DTOs;
@@ -18,18 +19,18 @@ public class SettingsController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<IActionResult> GetSettings()
+    public async Task<IActionResult> GetSettings(CancellationToken cancellationToken)
     {
         var userIdClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
         if (string.IsNullOrEmpty(userIdClaim) || !int.TryParse(userIdClaim, out var userId))
             return Unauthorized();
 
-        var settings = await _settingsService.GetSettingsAsync(userId);
+        var settings = await _settingsService.GetSettingsAsync(userId, cancellationToken);
         return Ok(settings);
     }
 
     [HttpPut]
-    public async Task<IActionResult> UpdateSettings([FromBody] SettingsDto dto)
+    public async Task<IActionResult> UpdateSettings([FromBody] SettingsDto dto, CancellationToken cancellationToken)
     {
         if (!ModelState.IsValid)
             return BadRequest(ModelState);
@@ -38,7 +39,7 @@ public class SettingsController : ControllerBase
         if (string.IsNullOrEmpty(userIdClaim) || !int.TryParse(userIdClaim, out var userId))
             return Unauthorized();
 
-        var settings = await _settingsService.UpdateSettingsAsync(userId, dto);
+        var settings = await _settingsService.UpdateSettingsAsync(userId, dto, cancellationToken);
         return Ok(settings);
     }
 }

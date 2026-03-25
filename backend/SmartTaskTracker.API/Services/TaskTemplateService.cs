@@ -1,3 +1,4 @@
+using System.Threading;
 using Microsoft.EntityFrameworkCore;
 using SmartTaskTracker.API.Data;
 using SmartTaskTracker.API.DTOs;
@@ -22,12 +23,12 @@ public class TaskTemplateService
         _context = context;
     }
 
-    public async Task<List<TaskTemplateDto>> GetTemplatesAsync(int userId)
+    public async Task<List<TaskTemplateDto>> GetTemplatesAsync(int userId, CancellationToken cancellationToken = default)
     {
         var templates = await _context.TaskTemplates
             .Where(t => t.UserId == userId)
             .OrderByDescending(t => t.CreatedAt)
-            .ToListAsync();
+            .ToListAsync(cancellationToken);
 
         return templates.Select(t => new TaskTemplateDto
         {
@@ -53,10 +54,10 @@ public class TaskTemplateService
         }).ToList();
     }
 
-    public async Task<TaskTemplateDto?> GetTemplateByIdAsync(int id, int userId)
+    public async Task<TaskTemplateDto?> GetTemplateByIdAsync(int id, int userId, CancellationToken cancellationToken = default)
     {
         var template = await _context.TaskTemplates
-            .FirstOrDefaultAsync(t => t.Id == id && t.UserId == userId);
+            .FirstOrDefaultAsync(t => t.Id == id && t.UserId == userId, cancellationToken);
 
         if (template == null) return null;
 
@@ -84,7 +85,7 @@ public class TaskTemplateService
         };
     }
 
-    public async Task<TaskTemplateDto> CreateTemplateAsync(CreateTaskTemplateDto dto, int userId)
+    public async Task<TaskTemplateDto> CreateTemplateAsync(CreateTaskTemplateDto dto, int userId, CancellationToken cancellationToken = default)
     {
         var template = new TaskTemplate
         {
@@ -109,7 +110,7 @@ public class TaskTemplateService
         };
 
         _context.TaskTemplates.Add(template);
-        await _context.SaveChangesAsync();
+        await _context.SaveChangesAsync(cancellationToken);
 
         return new TaskTemplateDto
         {
@@ -135,10 +136,10 @@ public class TaskTemplateService
         };
     }
 
-    public async Task<bool> UpdateTemplateAsync(int id, UpdateTaskTemplateDto dto, int userId)
+    public async Task<bool> UpdateTemplateAsync(int id, UpdateTaskTemplateDto dto, int userId, CancellationToken cancellationToken = default)
     {
         var template = await _context.TaskTemplates
-            .FirstOrDefaultAsync(t => t.Id == id && t.UserId == userId);
+            .FirstOrDefaultAsync(t => t.Id == id && t.UserId == userId, cancellationToken);
 
         if (template == null) return false;
 
@@ -149,19 +150,19 @@ public class TaskTemplateService
         template.RecurrenceType = dto.RecurrenceType;
         template.RecurrenceEndDate = dto.RecurrenceEndDate;
 
-        await _context.SaveChangesAsync();
+        await _context.SaveChangesAsync(cancellationToken);
         return true;
     }
 
-    public async Task<bool> DeleteTemplateAsync(int id, int userId)
+    public async Task<bool> DeleteTemplateAsync(int id, int userId, CancellationToken cancellationToken = default)
     {
         var template = await _context.TaskTemplates
-            .FirstOrDefaultAsync(t => t.Id == id && t.UserId == userId);
+            .FirstOrDefaultAsync(t => t.Id == id && t.UserId == userId, cancellationToken);
 
         if (template == null) return false;
 
         _context.TaskTemplates.Remove(template);
-        await _context.SaveChangesAsync();
+        await _context.SaveChangesAsync(cancellationToken);
         return true;
     }
 }

@@ -7,7 +7,7 @@ namespace SmartTaskTracker.API.Data;
 
 public static class DbSeeder
 {
-    /// <summary>Removes seed user "testuser" and all related data so SeedData can run fresh. Only use when RESEED_DATABASE=true.</summary>
+    /// <summary>Removes seed user "testuser" and all related data so <see cref="SeedData"/> can run fresh. Called from startup when Development or <c>SEED_DATABASE=true</c>.</summary>
     public static void ClearSeedData(AppDbContext context)
     {
         var user = context.Users.FirstOrDefault(u => u.Username == "testuser");

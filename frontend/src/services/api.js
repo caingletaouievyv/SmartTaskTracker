@@ -130,5 +130,25 @@ api.interceptors.response.use(
   }
 )
 
+/** User-facing message from API or validation payload (ASP.NET ModelState uses `errors`). */
+export function getApiErrorMessage(err, fallback = 'Something went wrong. Please try again.') {
+  if (!err) return fallback
+  const data = err.response?.data
+  if (typeof data?.message === 'string' && data.message.trim()) return data.message.trim()
+  if (data?.errors && typeof data.errors === 'object') {
+    const parts = []
+    for (const key of Object.keys(data.errors)) {
+      const v = data.errors[key]
+      if (Array.isArray(v)) parts.push(...v.filter((x) => typeof x === 'string'))
+      else if (typeof v === 'string') parts.push(v)
+    }
+    if (parts.length) return parts.join(' ')
+  }
+  if (!err.response && err.message && typeof err.message === 'string') {
+    return fallback
+  }
+  return fallback
+}
+
 export default api
 

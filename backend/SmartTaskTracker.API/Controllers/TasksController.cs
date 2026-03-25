@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using System.Threading;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SmartTaskTracker.API.DTOs;
@@ -28,23 +29,26 @@ public class TasksController : ControllerBase
     private int GetUserId() => int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 
     [HttpGet]
-    public async Task<ActionResult<List<TaskDto>>> GetTasks(
+    public async Task<ActionResult<TaskPagedListDto>> GetTasks(
         [FromQuery] string? search, 
         [FromQuery] string? status, 
         [FromQuery] string? sortBy, 
         [FromQuery] bool includeArchived = false,
         [FromQuery] string? dueDate = null,
         [FromQuery] int? priority = null,
-        [FromQuery] string? tags = null)
+        [FromQuery] string? tags = null,
+        [FromQuery] int? page = null,
+        [FromQuery] int? pageSize = null,
+        CancellationToken cancellationToken = default)
     {
-        var tasks = await _taskService.GetTasksAsync(GetUserId(), search, status, sortBy, includeArchived, dueDate, priority, tags);
-        return Ok(tasks);
+        var result = await _taskService.GetTasksAsync(GetUserId(), search, status, sortBy, includeArchived, dueDate, priority, tags, page, pageSize, cancellationToken);
+        return Ok(result);
     }
 
     [HttpGet("{id}")]
-    public async Task<ActionResult<TaskDto>> GetTask(int id)
+    public async Task<ActionResult<TaskDto>> GetTask(int id, CancellationToken cancellationToken)
     {
-        var task = await _taskService.GetTaskByIdAsync(id, GetUserId());
+        var task = await _taskService.GetTaskByIdAsync(id, GetUserId(), cancellationToken);
         if (task == null) return NotFound();
         return Ok(task);
     }
@@ -86,24 +90,24 @@ public class TasksController : ControllerBase
     }
 
     [HttpGet("analytics")]
-    public async Task<ActionResult<TaskAnalyticsDto>> GetAnalytics()
+    public async Task<ActionResult<TaskAnalyticsDto>> GetAnalytics(CancellationToken cancellationToken)
     {
-        var analytics = await _taskService.GetAnalyticsAsync(GetUserId());
+        var analytics = await _taskService.GetAnalyticsAsync(GetUserId(), cancellationToken);
         return Ok(analytics);
     }
 
     [HttpGet("reminders")]
-    public async Task<ActionResult<RemindersResponseDto>> GetReminders([FromQuery] int hoursAhead = 24)
+    public async Task<ActionResult<RemindersResponseDto>> GetReminders([FromQuery] int hoursAhead = 24, CancellationToken cancellationToken = default)
     {
-        var reminders = await _taskService.GetRemindersAsync(GetUserId(), hoursAhead);
+        var reminders = await _taskService.GetRemindersAsync(GetUserId(), hoursAhead, cancellationToken);
         return Ok(reminders);
     }
 
     [HttpGet("embedding-check")]
-    public async Task<ActionResult<object>> EmbeddingCheck()
+    public async Task<ActionResult<object>> EmbeddingCheck(CancellationToken cancellationToken)
     {
         if (!_env.IsDevelopment()) return NotFound();
-        var (ok, reason) = await _taskMemoryService.GetEmbeddingDiagnosticAsync();
+        var (ok, reason) = await _taskMemoryService.GetEmbeddingDiagnosticAsync(cancellationToken);
         return Ok(new { ok, reason });
     }
 
@@ -112,53 +116,54 @@ public class TasksController : ControllerBase
         [FromQuery] string? query,
         [FromQuery] TaskIntent? intent = null,
         [FromQuery] int? topK = null,
-        [FromQuery] double? threshold = null)
+        [FromQuery] double? threshold = null,
+        CancellationToken cancellationToken = default)
     {
         var useSemantic = intent != TaskIntent.Keyword;
         if (useSemantic)
         {
-            var results = await _taskMemoryService.SearchSemanticAsync(GetUserId(), query ?? "", topK, threshold);
+            var results = await _taskMemoryService.SearchSemanticAsync(GetUserId(), query ?? "", topK, threshold, cancellationToken);
             if (results.Count == 0 && !string.IsNullOrWhiteSpace(query))
             {
-                var tasks = await _taskService.GetTasksAsync(GetUserId(), query, null, null, false);
-                results = tasks.Select(t => new TaskSearchResultDto { Task = t, Score = null }).ToList();
+                var taskPage = await _taskService.GetTasksAsync(GetUserId(), query, null, null, false, cancellationToken: cancellationToken);
+                results = taskPage.Items.Select(t => new TaskSearchResultDto { Task = t, Score = null }).ToList();
                 Response.Headers.Append("X-Search-Fallback", "keyword");
             }
             return Ok(results);
         }
-        var keywordTasks = await _taskService.GetTasksAsync(GetUserId(), query, null, null, false);
-        return Ok(keywordTasks.Select(t => new TaskSearchResultDto { Task = t, Score = null }).ToList());
+        var keywordPage = await _taskService.GetTasksAsync(GetUserId(), query, null, null, false, cancellationToken: cancellationToken);
+        return Ok(keywordPage.Items.Select(t => new TaskSearchResultDto { Task = t, Score = null }).ToList());
     }
 
     [HttpGet("ai-suggestions")]
-    public async Task<ActionResult<List<TaskSuggestionDto>>> GetAiSuggestions([FromQuery] int? topK = null)
+    public async Task<ActionResult<List<TaskSuggestionDto>>> GetAiSuggestions([FromQuery] int? topK = null, CancellationToken cancellationToken = default)
     {
-        var results = await _taskService.GetSuggestedNextAsync(GetUserId(), topK);
+        var results = await _taskService.GetSuggestedNextAsync(GetUserId(), topK, cancellationToken);
         return Ok(results);
     }
 
     [HttpGet("suggest-tags")]
-    public async Task<ActionResult<List<TagSuggestionDto>>> SuggestTags([FromQuery] string? text, [FromQuery] int topK = 5)
+    public async Task<ActionResult<List<TagSuggestionDto>>> SuggestTags([FromQuery] string? text, [FromQuery] int topK = 5, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(text)) return Ok(new List<TagSuggestionDto>());
-        var results = await _taskMemoryService.SuggestTagsAsync(GetUserId(), text.Trim(), topK);
+        var results = await _taskMemoryService.SuggestTagsAsync(GetUserId(), text.Trim(), topK, cancellationToken);
         return Ok(results);
     }
 
     [HttpGet("{id}/suggest-dependencies")]
-    public async Task<ActionResult<List<TaskDependencySuggestionDto>>> SuggestDependencies(int id, [FromQuery] int topK = 5)
+    public async Task<ActionResult<List<TaskDependencySuggestionDto>>> SuggestDependencies(int id, [FromQuery] int topK = 5, CancellationToken cancellationToken = default)
     {
-        var results = await _taskMemoryService.SuggestDependenciesAsync(GetUserId(), id, topK);
+        var results = await _taskMemoryService.SuggestDependenciesAsync(GetUserId(), id, topK, cancellationToken);
         return Ok(results);
     }
 
     /// <summary>State: User sent free text. Intent: Get structured task for create form. Action: LLM parse or keyword fallback.</summary>
     [HttpPost("from-natural-language")]
-    public async Task<ActionResult<CreateTaskDto>> ParseNaturalLanguage([FromBody] ParseNaturalLanguageRequest request)
+    public async Task<ActionResult<CreateTaskDto>> ParseNaturalLanguage([FromBody] ParseNaturalLanguageRequest request, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(request.Text))
             return BadRequest(new { message = "Text is required" });
-        var parsed = await _naturalLanguageTaskService.ParseAsync(request.Text.Trim());
+        var parsed = await _naturalLanguageTaskService.ParseAsync(request.Text.Trim(), cancellationToken);
         return Ok(parsed);
     }
 
@@ -238,9 +243,9 @@ public class TasksController : ControllerBase
     }
 
     [HttpGet("{id}/subtasks")]
-    public async Task<ActionResult<List<TaskDto>>> GetSubtasks(int id)
+    public async Task<ActionResult<List<TaskDto>>> GetSubtasks(int id, CancellationToken cancellationToken)
     {
-        var subtasks = await _taskService.GetSubtasksAsync(id, GetUserId());
+        var subtasks = await _taskService.GetSubtasksAsync(id, GetUserId(), cancellationToken);
         return Ok(subtasks);
     }
 

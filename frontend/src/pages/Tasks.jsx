@@ -8,138 +8,42 @@ import Navbar from '../components/Navbar'
 import TaskCard from '../components/TaskCard'
 import TaskModal from '../components/TaskModal'
 import Dialog from '../components/Dialog'
+import BulkActionsBar from '../components/BulkActionsBar'
+import TasksFilterToolbar from '../components/TasksFilterToolbar'
+import TasksSearchAndAddToolbar from '../components/TasksSearchAndAddToolbar'
+import TasksSuggestionsModal from '../components/TasksSuggestionsModal'
+import TasksTemplatesPanel from '../components/TasksTemplatesPanel'
+import TasksAnalyticsPanel from '../components/TasksAnalyticsPanel'
+import TasksRemindersPanel from '../components/TasksRemindersPanel'
 import { taskTemplateService } from '../services/taskTemplateService'
 import { analyticsService } from '../services/analyticsService'
 import { reminderService } from '../services/reminderService'
 import { taskService } from '../services/taskService'
 import { settingsService } from '../services/settingsService'
-import { isServerWakingError } from '../services/api'
-
-// Bulk Actions Bar Component
-function BulkActionsBar({ selectedCount, selectedTasks, tasks, onBulkDelete, onBulkStatusChange, onBulkArchive, onBulkUnarchive, onClear }) {
-  const [showStatusDropdown, setShowStatusDropdown] = useState(false)
-  
-  // Check if all selected tasks are completed (for bulk archive)
-  const allSelectedCompleted = selectedTasks.size > 0 && 
-    Array.from(selectedTasks).every(id => {
-      const task = tasks.find(t => t.id === id)
-      return task?.isCompleted
-    })
-  
-  // Check if all selected tasks are archived (for bulk unarchive)
-  const allSelectedArchived = selectedTasks.size > 0 && 
-    Array.from(selectedTasks).every(id => {
-      const task = tasks.find(t => t.id === id)
-      return task?.isArchived
-    })
-  
-  const statusOptions = [
-    { value: 'Active', label: 'Active' },
-    { value: 'InProgress', label: 'In Progress' },
-    { value: 'OnHold', label: 'On Hold' },
-    { value: 'Completed', label: 'Completed' },
-    { value: 'Cancelled', label: 'Cancelled' }
-  ]
-
-  return (
-    <div className="alert alert-info d-flex justify-content-between align-items-center mb-3">
-      <span className="fw-semibold">{selectedCount} task(s) selected</span>
-      <div className="d-flex gap-2 flex-wrap">
-        <button className="btn btn-sm btn-danger" onClick={onBulkDelete}>
-          🗑️ Delete Selected
-        </button>
-        {allSelectedCompleted && !allSelectedArchived && (
-        <button className="btn btn-sm btn-primary" onClick={onBulkArchive}>
-            📦 Archive Selected
-          </button>
-        )}
-        {allSelectedArchived && (
-          <button className="btn btn-sm btn-info" onClick={onBulkUnarchive}>
-            📤 Unarchive Selected
-          </button>
-        )}
-        <div className="position-relative">
-          <button 
-            className="btn btn-sm btn-primary d-flex align-items-center gap-1"
-            onClick={() => setShowStatusDropdown(!showStatusDropdown)}
-            title="Change status of selected tasks"
-            style={{ 
-              minWidth: '140px',
-              justifyContent: 'space-between'
-            }}
-          >
-            <span>📋 Change Status</span>
-            <span style={{ fontSize: '0.7rem', opacity: 0.8 }}>
-              {showStatusDropdown ? '▲' : '▼'}
-            </span>
-          </button>
-          {showStatusDropdown && (
-            <>
-              <div 
-                className="position-fixed"
-                style={{ 
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  zIndex: 999
-                }}
-                onClick={() => setShowStatusDropdown(false)}
-              />
-              <div 
-                className="position-absolute border rounded shadow-lg p-1 mt-1 status-dropdown-menu"
-                style={{ 
-                  zIndex: 1000, 
-                  minWidth: '180px',
-                  top: '100%',
-                  left: 0,
-                  backgroundColor: 'var(--bs-body-bg)',
-                  borderColor: 'var(--bs-border-color)'
-                }}
-              >
-                {statusOptions.map(option => (
-                  <button
-                    key={option.value}
-                    type="button"
-                    className="btn btn-sm w-100 text-start d-flex align-items-center gap-2"
-                    onClick={() => {
-                      onBulkStatusChange(option.value)
-                      setShowStatusDropdown(false)
-                    }}
-                    style={{ 
-                      fontSize: '0.875rem',
-                      padding: '0.375rem 0.5rem',
-                      border: 'none',
-                      background: 'transparent',
-                      color: 'var(--bs-body-color)',
-                      borderRadius: '0.25rem',
-                      transition: 'background-color 0.15s ease'
-                    }}
-                    onMouseEnter={(e) => {
-                      e.target.style.background = 'var(--bs-tertiary-bg, var(--bs-secondary-bg))'
-                    }}
-                    onMouseLeave={(e) => {
-                      e.target.style.background = 'transparent'
-                    }}
-                  >
-                    <span>{option.label}</span>
-                  </button>
-                ))}
-              </div>
-            </>
-          )}
-        </div>
-        <button className="btn btn-sm btn-outline-primary" onClick={onClear}>
-          Clear
-        </button>
-      </div>
-    </div>
-  )
-}
+import { isServerWakingError, getApiErrorMessage } from '../services/api'
 
 const tagsToArray = (tags) => {
   if (!tags) return []
   return Array.isArray(tags) ? tags : Object.keys(tags)
+}
+
+const normalizedTagNamesSorted = (tags) => {
+  const raw = tagsToArray(tags)
+  const names = raw
+    .map((t) => {
+      if (t == null) return ''
+      if (typeof t === 'object') return String(t.name ?? '').trim()
+      return String(t).trim()
+    })
+    .filter(Boolean)
+  return [...names].sort((a, b) => a.localeCompare(b))
+}
+
+const dueInstantOrNull = (v) => {
+  if (v == null || v === '') return null
+  const d = new Date(v)
+  if (Number.isNaN(d.getTime())) return null
+  return d.getTime()
 }
 
 function Tasks() {
@@ -603,14 +507,21 @@ function Tasks() {
     const norm = (v) => (v ?? '').toString().trim()
     if (norm(payload.title) !== norm(task.title)) return false
     if (norm(payload.description) !== norm(task.description)) return false
-    if ((payload.dueDate || null) !== (task.dueDate || null)) return false
+    if (dueInstantOrNull(payload.dueDate) !== dueInstantOrNull(task.dueDate)) return false
     if ((payload.priority ?? 1) !== (task.priority ?? 1)) return false
     if ((payload.status ?? 0) !== (task.status ?? 0)) return false
-    const taskTagIds = (task.tags || []).map((t) => t?.id ?? t).filter(Boolean).sort()
-    const formTagIds = (formData.tags || []).map((t) => (typeof t === 'object' ? t?.id : t) ?? t).filter(Boolean).sort()
-    if (JSON.stringify(taskTagIds) !== JSON.stringify(formTagIds)) return false
-    const a = (task.dependsOnTaskIds || []).slice().sort()
-    const b = (formData.dependsOnTaskIds || []).slice().sort()
+    if (norm(payload.notes) !== norm(task.notes)) return false
+    if (norm(payload.fileUrl) !== norm(task.fileUrl)) return false
+    if (norm(payload.fileName) !== norm(task.fileName)) return false
+    if ((payload.recurrenceType ?? 0) !== (task.recurrenceType ?? 0)) return false
+    if (dueInstantOrNull(payload.recurrenceEndDate) !== dueInstantOrNull(task.recurrenceEndDate)) return false
+    const est = (x) => (x === '' || x == null ? null : Number(x))
+    if (est(payload.estimatedTimeMinutes) !== est(task.estimatedTimeMinutes)) return false
+    const aTags = JSON.stringify(normalizedTagNamesSorted(task.tags))
+    const bTags = JSON.stringify(normalizedTagNamesSorted(formData.tags))
+    if (aTags !== bTags) return false
+    const a = (task.dependsOnTaskIds || []).slice().sort((x, y) => x - y)
+    const b = (formData.dependsOnTaskIds || []).slice().sort((x, y) => x - y)
     if (JSON.stringify(a) !== JSON.stringify(b)) return false
     return true
   }
@@ -670,20 +581,24 @@ function Tasks() {
         // Server down/cold: banner shows; no generic error so user sees server-wake flow
         return
       }
-      const errorMsg = err.response?.data?.message || 'Failed to update status'
-      await alert(errorMsg, 'Error')
+      await alert(getApiErrorMessage(err, 'We could not update the task status. Please try again.'), 'Error')
     }
   }
 
   const handleSubmit = async (formData) => {
     setSubmitting(true)
     try {
+      const tagStrings = (formData.tags || [])
+        .map((t) => (typeof t === 'object' && t != null ? t.name : t))
+        .filter((x) => x != null && String(x).trim() !== '')
+        .map((t) => String(t).trim())
+
       const payload = {
         title: formData.title.trim(),
         description: formData.description?.trim() || null,
         dueDate: formData.dueDate || null,
         priority: formData.priority || 1,
-        tags: formData.tags || [],
+        tags: tagStrings,
         fileUrl: formData.fileUrl || null,
         fileName: formData.fileName || null,
         recurrenceType: formData.recurrenceType || 0,
@@ -841,8 +756,9 @@ function Tasks() {
         setOpenedFromNaturalLanguage(false)
       }
     } catch (err) {
-      const errorMsg = err.response?.data?.message || 'Failed to save task'
-      await alert(errorMsg, 'Error')
+      console.error('Failed to save task:', err)
+      if (isServerWakingError(err)) return
+      await alert(getApiErrorMessage(err, 'We could not save your task. Please check your connection and try again.'), 'Error')
     } finally {
       setSubmitting(false)
     }
@@ -1321,8 +1237,7 @@ function Tasks() {
       localStorage.removeItem('taskTrackerBulkOperation')
       console.error('Failed to update status:', err)
       if (isServerWakingError(err)) return
-      const errorMsg = err.response?.data?.message || 'Failed to update status'
-      await alert(errorMsg, 'Error')
+      await alert(getApiErrorMessage(err, 'We could not update the task status. Please try again.'), 'Error')
     }
   }
 
@@ -1652,447 +1567,100 @@ function Tasks() {
         </div>
 
         {showTemplates && (
-          <div className="mb-3">
-            <div className="card">
-              <div className="card-header d-flex justify-content-between align-items-center">
-                <h5 className="mb-0 fw-bold">📋 Task Templates</h5>
-                <button className="btn btn-sm btn-close" onClick={() => setShowTemplates(false)}></button>
-              </div>
-              <div className="card-body">
-                {templates.length === 0 ? (
-                  <p className="mb-0" style={{ color: 'inherit', opacity: 0.8 }}>No templates. Create a task and save it as a template.</p>
-                ) : (
-                  <div className="row g-2">
-                    {templates.map(template => (
-                      <div key={template.id} className="col-12 col-md-6 col-lg-4">
-                        <div className="card h-100">
-                          <div className="card-body">
-                            <h6 className="card-title">{template.name}</h6>
-                            <p className="card-text small text-muted mb-2">{template.title}</p>
-                            <div className="d-flex gap-2">
-                              <button
-                                className="btn btn-sm btn-primary flex-fill"
-                                onClick={() => handleCreateFromTemplate(template)}
-                              >
-                                Use
-                              </button>
-                              <button
-                                className="btn btn-sm btn-outline-danger"
-                                onClick={async () => {
-                                  if (await confirm('Delete this template?', 'Delete Template')) {
-                                    try {
-                                      await taskTemplateService.delete(template.id)
-                                      await fetchTemplates()
-                                    } catch (err) {
-                                      await alert('Failed to delete template', 'Error')
-                                    }
-                                  }
-                                }}
-                              >
-                                Delete
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {showAnalytics && analytics && (
-          <div className="mb-3">
-            <div className="card">
-              <div className="card-header d-flex justify-content-between align-items-center">
-                <h5 className="mb-0 fw-bold">📈 Task Analytics</h5>
-                <button className="btn btn-sm btn-close" onClick={() => setShowAnalytics(false)}></button>
-              </div>
-              <div className="card-body">
-                <div className="row g-3">
-                  <div className="col-6 col-md-3">
-                    <div className="text-center">
-                      <h3 className="mb-1 fw-bold">{analytics.totalTasks}</h3>
-                      <small style={{ color: 'inherit', opacity: 0.85, fontWeight: 500 }}>Total Tasks</small>
-                    </div>
-                  </div>
-                  <div className="col-6 col-md-3">
-                    <div className="text-center">
-                      <h3 className="mb-1 fw-bold text-primary">{analytics.activeTasks}</h3>
-                      <small style={{ color: 'inherit', opacity: 0.85, fontWeight: 500 }}>Active</small>
-                    </div>
-                  </div>
-                  <div className="col-6 col-md-3">
-                    <div className="text-center">
-                      <h3 className="mb-1 fw-bold text-success">{analytics.completedTasks}</h3>
-                      <small style={{ color: 'inherit', opacity: 0.85, fontWeight: 500 }}>Completed</small>
-                    </div>
-                  </div>
-                  <div className="col-6 col-md-3">
-                    <div className="text-center">
-                      <h3 className="mb-1 fw-bold text-danger">{analytics.overdueTasks}</h3>
-                      <small style={{ color: 'inherit', opacity: 0.85, fontWeight: 500 }}>Overdue</small>
-                    </div>
-                  </div>
-                  <div className="col-6 col-md-3">
-                    <div className="text-center">
-                      <h3 className="mb-1 fw-bold text-warning">{analytics.highPriorityTasks}</h3>
-                      <small style={{ color: 'inherit', opacity: 0.85, fontWeight: 500 }}>High Priority</small>
-                    </div>
-                  </div>
-                  <div className="col-6 col-md-3">
-                    <div className="text-center">
-                      <h3 className="mb-1 fw-bold">{analytics.tasksThisWeek}</h3>
-                      <small style={{ color: 'inherit', opacity: 0.85, fontWeight: 500 }}>This Week</small>
-                    </div>
-                  </div>
-                  <div className="col-6 col-md-3">
-                    <div className="text-center">
-                      <h3 className="mb-1 fw-bold">{analytics.tasksThisMonth}</h3>
-                      <small style={{ color: 'inherit', opacity: 0.85, fontWeight: 500 }}>This Month</small>
-                    </div>
-                  </div>
-                </div>
-                <div className="mt-3">
-                  <h6 className="fw-semibold mb-2">By Priority</h6>
-                  <div className="d-flex flex-wrap gap-2">
-                    {Object.entries(analytics.tasksByPriority).map(([priority, count]) => (
-                      <span key={priority} className="badge bg-info fw-semibold">
-                        {priority}: {count}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {showReminders && reminders && (
-          <div className="mb-3">
-            <div className="card">
-              <div className="card-header d-flex justify-content-between align-items-center">
-                <h5 className="mb-0 fw-bold">📧 Task Reminders</h5>
-                <button className="btn btn-sm btn-close" onClick={() => setShowReminders(false)}></button>
-              </div>
-              <div className="card-body">
-                {reminders.overdueTasks.length === 0 && reminders.upcomingTasks.length === 0 ? (
-                  <p className="mb-0" style={{ color: 'inherit', opacity: 0.8 }}>No tasks due in the next 24 hours. Great job!</p>
-                ) : (
-                  <>
-                    {reminders.overdueTasks.length > 0 && (
-                      <div className="mb-3">
-                        <h6 className="text-danger fw-bold mb-2">⚠️ Overdue Tasks ({reminders.overdueTasks.length})</h6>
-                        <div className="list-group">
-                          {reminders.overdueTasks.map(task => (
-                            <div key={task.id} className="list-group-item">
-                              <div className="d-flex justify-content-between align-items-start">
-                                <div className="flex-grow-1">
-                                  <h6 className="mb-1 fw-semibold">{task.title}</h6>
-                                  <small style={{ color: 'inherit', opacity: 0.85, display: 'block' }}>
-                                    Due: {new Date(task.dueDate).toLocaleString()} 
-                                    <span className="text-danger fw-semibold"> ({task.hoursUntilDue} hours ago)</span>
-                                  </small>
-                                </div>
-                                <span className={`badge ${task.priority === 2 ? 'bg-danger' : task.priority === 1 ? 'bg-warning' : 'bg-info'} ms-2`}>
-                                  {task.priority === 2 ? 'High' : task.priority === 1 ? 'Medium' : 'Low'}
-                                </span>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                    {reminders.upcomingTasks.length > 0 && (
-                      <div>
-                        <h6 className="text-warning fw-bold mb-2">⏰ Upcoming Tasks ({reminders.upcomingTasks.length})</h6>
-                        <div className="list-group">
-                          {reminders.upcomingTasks.map(task => (
-                            <div key={task.id} className="list-group-item">
-                              <div className="d-flex justify-content-between align-items-start">
-                                <div className="flex-grow-1">
-                                  <h6 className="mb-1 fw-semibold">{task.title}</h6>
-                                  <small style={{ color: 'inherit', opacity: 0.85, display: 'block' }}>
-                                    Due: {new Date(task.dueDate).toLocaleString()} 
-                                    <span className="text-warning fw-semibold"> (in {task.hoursUntilDue} hours)</span>
-                                  </small>
-                                </div>
-                                <span className={`badge ${task.priority === 2 ? 'bg-danger' : task.priority === 1 ? 'bg-warning' : 'bg-info'} ms-2`}>
-                                  {task.priority === 2 ? 'High' : task.priority === 1 ? 'Medium' : 'Low'}
-                                </span>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-
-        <div className="d-flex flex-wrap gap-2 mb-3 align-items-center">
-          <button
-            className={`btn btn-sm ${showArchived ? 'btn-primary' : 'btn-outline-primary'}`}
-            onClick={() => setShowArchived(!showArchived)}
-            title={showArchived ? 'Hide archived tasks' : 'Show archived tasks'}
-          >
-            {showArchived ? '📦 Hide Archived' : '📦 Show Archived'}
-          </button>
-          <span className="text-muted d-none d-md-inline" aria-hidden>|</span>
-          <span className="d-block d-md-none w-100" style={{ height: 0 }} aria-hidden />
-          <button
-            className={`btn btn-sm ${quickFilter === 'today' ? 'btn-primary' : 'btn-outline-primary'}`}
-            onClick={() => handleQuickFilter('today')}
-          >
-            📅 Today
-          </button>
-          <button
-            className={`btn btn-sm ${quickFilter === 'week' ? 'btn-primary' : 'btn-outline-primary'}`}
-            onClick={() => handleQuickFilter('week')}
-          >
-            📆 This Week
-          </button>
-          <button
-            className={`btn btn-sm ${quickFilter === 'high' ? 'btn-primary' : 'btn-outline-primary'}`}
-            onClick={() => handleQuickFilter('high')}
-          >
-            🔴 High Priority
-          </button>
-          <span className="text-muted d-none d-md-inline" aria-hidden>|</span>
-          <span className="d-block d-md-none w-100" style={{ height: 0 }} aria-hidden />
-          <select
-            className="form-select form-select-sm"
-            style={{ width: 'auto', minWidth: '120px' }}
-            value={status}
-            onChange={(e) => setStatus(e.target.value)}
-            aria-label="Filter by status"
-          >
-            <option value="">All Tasks</option>
-            <option value="active">Active</option>
-            <option value="inprogress">In Progress</option>
-            <option value="onhold">On Hold</option>
-            <option value="completed">Completed</option>
-            <option value="cancelled">Cancelled</option>
-          </select>
-          <select
-            className="form-select form-select-sm"
-            style={{ width: 'auto', minWidth: '140px' }}
-            value={effectiveSortBy}
-            onChange={(e) => setSortBy(e.target.value)}
-            aria-label="Sort by"
-          >
-            <option value="date">Sort by Recent</option>
-            <option value="priority">Sort by Priority</option>
-            <option value="title">Sort by Title</option>
-            <option value="dueDate">Sort by Due Date</option>
-            <option value="custom">Sort by Custom</option>
-          </select>
-          {(filterPresets.length > 0 ||
-            quickFilter ||
-            search ||
-            status ||
-            selectedPresetId ||
-            (sortBy && sortBy !== (settings?.defaultSortBy || 'date'))) && (
-            <span className="text-muted d-none d-md-inline" aria-hidden>|</span>
-          )}
-          {filterPresets.length > 0 && (
-            <select
-              className="form-select form-select-sm"
-              style={{ width: 'auto', minWidth: '150px' }}
-              value={selectedPresetId}
-              onChange={(e) => {
-                const value = e.target.value
-                setSelectedPresetId(value)
-                if (!value) return
-                const preset = filterPresets.find(p => String(p.id) === value)
-                if (!preset) return
-                setSearch(preset.search || '')
-                setStatus(preset.status || '')
-                setSortBy(preset.sortBy || '')
-                setQuickFilter('')
-              }}
-              aria-label="Filter presets"
-            >
-              <option value="">📌 Filter Presets...</option>
-              {filterPresets.map(preset => (
-                <option key={preset.id} value={preset.id}>
-                  {preset.name}
-                </option>
-              ))}
-            </select>
-          )}
-          {(
-            quickFilter ||
-            search ||
-            status ||
-            selectedPresetId ||
-            (sortBy && sortBy !== (settings?.defaultSortBy || 'date'))
-          ) && (
-            <button
-              className="btn btn-sm btn-outline-primary"
-              onClick={() => {
-                setQuickFilter('')
-                setSearch('')
-                setStatus('')
-                setSortBy('')
-                setSelectedPresetId('')
-              }}
-            >
-              Clear Filter
-            </button>
-          )}
-          <button
-            className="btn btn-outline-primary ms-auto"
-            style={{ height: '38px', minWidth: '100px' }}
-            onClick={async () => {
-              setSuggestionsLoading(true)
-              setShowSuggestions(true)
-              try {
-                const data = await taskService.getAiSuggestions()
-                setSuggestions(Array.isArray(data) ? data : [])
-              } catch (err) {
-                setSuggestions([])
-              } finally {
-                setSuggestionsLoading(false)
+          <TasksTemplatesPanel
+            templates={templates}
+            onClose={() => setShowTemplates(false)}
+            onUseTemplate={handleCreateFromTemplate}
+            onDeleteTemplate={async (template) => {
+              if (await confirm('Delete this template?', 'Delete Template')) {
+                try {
+                  await taskTemplateService.delete(template.id)
+                  await fetchTemplates()
+                } catch {
+                  await alert('Failed to delete template', 'Error')
+                }
               }
             }}
-            title="Suggested next (priority, due date)"
-          >
-            What&apos;s next?
-          </button>
-        </div>
-
-        <div className="d-flex flex-wrap gap-2 mb-3 align-items-center">
-          <div className="flex-grow-1 min-w-0" style={{ minWidth: '120px' }}>
-            <div className="input-group">
-              <span className="input-group-text bg-transparent" aria-hidden title="Semantic search (meaning + keyword)">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden><path d="M12 0l2.5 7.5L22 10l-7.5 2.5L12 20l-2.5-7.5L2 10l7.5-2.5L12 0z"/></svg>
-              </span>
-              <input
-                ref={searchInputRef}
-                type="text"
-                className="form-control border-start-0"
-                placeholder="Search by meaning or keyword..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                aria-label="Search by meaning or keyword"
-              />
-            </div>
-          </div>
-          <div className="d-flex gap-2 flex-wrap align-items-center">
-            {tasks.length > 0 && (
-              <>
-                {selectedTasks.size === 0 && (
-                  <button className="btn btn-outline-primary" style={{ height: '38px', minWidth: '120px' }} onClick={handleSelectAll}>
-                    Select All
-                  </button>
-                )}
-                {selectedTasks.size > 0 && selectedTasks.size < tasks.length && (
-                  <>
-                    <button className="btn btn-outline-primary" style={{ height: '38px', minWidth: '120px' }} onClick={handleSelectAll}>
-                      Select All
-                    </button>
-                    <button className="btn btn-outline-primary" style={{ height: '38px', minWidth: '120px', color: '#fff' }} onClick={handleUnselectAll}>
-                      Unselect All
-                    </button>
-                  </>
-                )}
-                {selectedTasks.size === tasks.length && tasks.length > 0 && (
-                  <button className="btn btn-outline-primary" style={{ height: '38px', minWidth: '120px', color: '#fff' }} onClick={handleUnselectAll}>
-                    Unselect All
-                  </button>
-                )}
-              </>
-            )}
-            <div className="dropdown" ref={addDropdownRef}>
-              <div className="btn-group">
-                <button
-                  type="button"
-                  className="btn btn-primary"
-                  style={{ height: '38px', minWidth: '100px' }}
-                  onClick={handleCreate}
-                >
-                  <span className="d-none d-sm-inline">+ Add Task</span>
-                  <span className="d-sm-none">+ Add</span>
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-primary add-task-ai-toggle"
-                  style={{ height: '38px', minWidth: '36px' }}
-                  onClick={() => setShowAddDropdown(!showAddDropdown)}
-                  aria-expanded={showAddDropdown}
-                  aria-haspopup="true"
-                  aria-label="Add from text (AI)"
-                  title="Add from text (AI fills the details)"
-                >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden><path d="M12 0l2.5 7.5L22 10l-7.5 2.5L12 20l-2.5-7.5L2 10l7.5-2.5L12 0z"/></svg>
-                </button>
-              </div>
-              <div className={`dropdown-menu dropdown-menu-end p-2 ${showAddDropdown ? 'show' : ''}`} style={{ minWidth: '280px' }}>
-                <input
-                  type="text"
-                  className="form-control form-control-sm mb-2"
-                  placeholder="e.g. Review report tomorrow afternoon, high priority"
-                  value={nlInput}
-                  onChange={(e) => setNlInput(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleAddFromNaturalLanguage()}
-                  disabled={nlLoading}
-                  aria-label="Describe your task in plain language"
-                  aria-busy={nlLoading}
-                  autoFocus
-                />
-                <button
-                  type="button"
-                  className="btn btn-primary btn-sm w-100"
-                  onClick={handleAddFromNaturalLanguage}
-                  disabled={nlLoading || !nlInput.trim()}
-                >
-                  {nlLoading ? 'Parsing…' : 'Add from text'}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {showSuggestions && (
-          <div className="modal show d-block" role="dialog" aria-modal="true" aria-labelledby="suggestions-modal-title" tabIndex={-1} style={{ backgroundColor: 'rgba(0,0,0,0.5)' }} onClick={() => setShowSuggestions(false)}>
-            <div className="modal-dialog modal-dialog-centered" onClick={(e) => e.stopPropagation()}>
-              <div className="modal-content suggestions-panel">
-                <div className="modal-header">
-                  <h5 id="suggestions-modal-title" className="modal-title">Suggested next</h5>
-                  <button type="button" className="btn-close" onClick={() => setShowSuggestions(false)} aria-label="Close suggestions" />
-                </div>
-                <div className="modal-body">
-                  {suggestionsLoading ? (
-                    <p className="mb-0 text-muted small">Loading…</p>
-                  ) : suggestions.length === 0 ? (
-                    <p className="mb-0 text-muted small">No suggestions.</p>
-                  ) : (
-                    <ul className="list-unstyled mb-0">
-                      {suggestions.map((s) => (
-                        <li key={s.task?.id} className="border-bottom border-secondary border-opacity-25 last:border-b-0">
-                          <button
-                            type="button"
-                            className="btn btn-link text-start p-2 w-100 text-decoration-none d-flex flex-column align-items-start gap-1"
-                            onClick={() => { setShowSuggestions(false); scrollToTaskThenEdit(s.task) }}
-                          >
-                            <span>{s.task?.title}</span>
-                            {s.reason ? <span className="small text-muted">{s.reason}</span> : null}
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
+          />
         )}
+
+        {showAnalytics && <TasksAnalyticsPanel analytics={analytics} onClose={() => setShowAnalytics(false)} />}
+
+        {showReminders && <TasksRemindersPanel reminders={reminders} onClose={() => setShowReminders(false)} />}
+
+        <TasksFilterToolbar
+          showArchived={showArchived}
+          onToggleArchived={() => setShowArchived(!showArchived)}
+          quickFilter={quickFilter}
+          onQuickFilter={handleQuickFilter}
+          status={status}
+          onStatusChange={setStatus}
+          effectiveSortBy={effectiveSortBy}
+          onSortByChange={setSortBy}
+          sortBy={sortBy}
+          defaultSortBy={settings?.defaultSortBy || 'date'}
+          search={search}
+          selectedPresetId={selectedPresetId}
+          onPresetIdChange={(value) => {
+            setSelectedPresetId(value)
+            if (!value) return
+            const preset = filterPresets.find((p) => String(p.id) === value)
+            if (!preset) return
+            setSearch(preset.search || '')
+            setStatus(preset.status || '')
+            setSortBy(preset.sortBy || '')
+            setQuickFilter('')
+          }}
+          filterPresets={filterPresets}
+          onClearFilters={() => {
+            setQuickFilter('')
+            setSearch('')
+            setStatus('')
+            setSortBy('')
+            setSelectedPresetId('')
+          }}
+          onWhatsNext={async () => {
+            setSuggestionsLoading(true)
+            setShowSuggestions(true)
+            try {
+              const data = await taskService.getAiSuggestions()
+              setSuggestions(Array.isArray(data) ? data : [])
+            } catch {
+              setSuggestions([])
+            } finally {
+              setSuggestionsLoading(false)
+            }
+          }}
+        />
+
+        <TasksSearchAndAddToolbar
+          searchInputRef={searchInputRef}
+          search={search}
+          onSearchChange={setSearch}
+          tasksLength={tasks.length}
+          selectedSize={selectedTasks.size}
+          onSelectAll={handleSelectAll}
+          onUnselectAll={handleUnselectAll}
+          addDropdownRef={addDropdownRef}
+          showAddDropdown={showAddDropdown}
+          onToggleAddDropdown={setShowAddDropdown}
+          onCreateTask={handleCreate}
+          nlInput={nlInput}
+          onNlInputChange={setNlInput}
+          nlLoading={nlLoading}
+          onAddFromNaturalLanguage={handleAddFromNaturalLanguage}
+        />
+
+        <TasksSuggestionsModal
+          open={showSuggestions}
+          onClose={() => setShowSuggestions(false)}
+          loading={suggestionsLoading}
+          suggestions={suggestions}
+          onPickTask={(task) => {
+            setShowSuggestions(false)
+            scrollToTaskThenEdit(task)
+          }}
+        />
 
         {selectedTasks.size > 0 && (
           <BulkActionsBar
